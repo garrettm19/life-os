@@ -1,0 +1,28 @@
+# npm: Expo, React and React Native move with the Expo SDK and are upgraded on purpose, and every
+# other major version is upgraded by hand as its own change (docs/decisions/0009-dependency-policy.md).
+# GitHub Actions updates include major versions.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: 'expo'
+      - dependency-name: 'expo-*'
+      - dependency-name: '@expo/*'
+      - dependency-name: 'react'
+      - dependency-name: 'react-dom'
+      - dependency-name: 'react-native'
+      - dependency-name: 'react-native-*'
+      - dependency-name: '@react-native/*'
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      development:
+        dependency-type: development
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

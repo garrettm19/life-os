@@ -1,0 +1,33 @@
+name: Feature request
+description: A change that would help decide, do or review what matters today.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Never paste real routines, health, money, trading or journal details, backups, setup files or
+        screenshots that show them. Describe the idea with made-up examples.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard today, in a real situation (with made-up details).
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Intended outcome
+      description: What would be different, and the simplest flow that gets there.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and edge cases
+      description: How to tell it works, and the cases that could break it (missed days, private routines, time zones).
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and privacy
+      description: What would be recorded, and whether it could reach the widget, a backup or an export.

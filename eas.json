@@ -1,0 +1,7 @@
+{
+  "cli": { "version": ">= 19.1.0", "appVersionSource": "local" },
+  "build": {
+    "preview": { "distribution": "internal" },
+    "production": { "autoIncrement": true }
+  }
+}

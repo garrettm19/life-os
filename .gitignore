@@ -1,0 +1,45 @@
+# Secrets
+.env
+.env.*
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Private data (personal setup files, exports and backups stay on the machine)
+private/
+local-data/
+docs/private/
+LifeOS-backup-*.json
+LifeOS-analysis-*
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+# The one synthetic fixture: the database a version-3 build wrote for a fictional month.
+!src/data/__tests__/fixtures/v3-build.db
+
+# Dependencies
+node_modules/
+
+# Expo and build output
+.expo/
+dist/
+dist-ios/
+expo-env.d.ts
+.metro-health-check*
+*.tsbuildinfo
+
+# Generated native projects
+/ios
+/android
+
+# Test output (synthetic data only)
+test-results/
+screenshots/
+
+# Logs and OS files
+npm-debug.*
+.DS_Store

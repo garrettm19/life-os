@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "Life OS",
+    "slug": "personal-os",
+    "version": "1.4.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "personalos",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/app.icon",
+      "bundleIdentifier": "com.garrettm19.personalos",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F4EF",
+          "image": "./assets/images/splash-icon-light.png",
+          "imageWidth": 76,
+          "dark": {
+            "backgroundColor": "#100F0E",
+            "image": "./assets/images/splash-icon.png"
+          }
+        }
+      ],
+      "./plugins/without-push-entitlement",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.garrettm19.personalos.ExpoWidgetsTarget",
+          "groupIdentifier": "group.com.garrettm19.personalos",
+          "widgets": [
+            {
+              "name": "TodayWidget",
+              "displayName": "Today",
+              "description": "Your next scheduled action or the next thing on your list, and Day Cleared if you choose to show it. On the Lock Screen, your Up by time.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryInline",
+                  "accessoryRectangular",
+                  "accessoryCircular"
+                ]
+              }
+            },
+            {
+              "name": "TodayListWidget",
+              "displayName": "Today list",
+              "description": "Today's objectives as a list. Tap one to tick it off.",
+              "ios": {
+                "supportedFamilies": ["systemLarge"]
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "63c6f1c1-3356-4208-9440-066ac1908ed6"
+      }
+    },
+    "owner": "masg"
+  }
+}
