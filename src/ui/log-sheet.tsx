@@ -4,6 +4,7 @@ import { CATEGORY_LABELS, deleteLog, saveLog } from '../domain/lifelog';
 import { LOG_CATEGORIES, LifeLogEntry, LogCategory, displayDate } from '../domain/model';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { newId } from './ids';
 import { palette, type } from './theme';
 
@@ -52,6 +53,7 @@ function LogForm({ target, close }: { target: LogTarget; close: () => void }) {
   const [mood, setMood] = useState(entry?.mood ?? null);
   const [goalId, setGoalId] = useState(entry?.goalId ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   // One ID per open form: a repeated Save updates the same entry instead of adding another.
   const [id] = useState(() => entry?.id ?? newId('log'));
   const [details, setDetails] = useState(
@@ -130,13 +132,19 @@ function LogForm({ target, close }: { target: LogTarget; close: () => void }) {
         </Text>
       )}
       <Button title={entry ? 'Save entry' : 'Save to log'} onPress={() => void save()} />
-      {entry && (
-        <Button
-          secondary
-          title="Delete this entry"
-          onPress={() => void change((s) => deleteLog(s, entry.id)).then((ok) => ok && close())}
-        />
-      )}
+      {entry &&
+        (confirmDelete ? (
+          <ConfirmRemove
+            message="Delete this entry? It leaves your log."
+            remove={{
+              title: 'Delete entry',
+              onPress: () => void change((s) => deleteLog(s, entry.id)).then((ok) => ok && close()),
+            }}
+            keep={() => setConfirmDelete(false)}
+          />
+        ) : (
+          <Button secondary title="Delete this entry" onPress={() => setConfirmDelete(true)} />
+        ))}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Private. Ratings are your own impressions, not measurements. Logging never affects Day
         Cleared.

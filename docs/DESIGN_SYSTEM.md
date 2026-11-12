@@ -68,6 +68,7 @@ Source strings stay in sentence case; uppercase is a style, so accessible names 
 - Every sheet and full-screen view carries its own `SafeAreaProvider`, because a native modal does not inherit the app's.
 - The round objective check is a 30 pt circle in a 44 pt target: an outline when open, Ember for the next thing to do, solid Fern when done, dashed when skipped.
 - An on/off setting is always a switch row with a caption saying what the current state means, never a button.
+- Deleting a saved record takes one small confirm (`ConfirmRemove`, `src/ui/confirm-remove.tsx`): a card with a `danger` edge, one line saying what happens, then the choice. Keep it is the primary button, except when the record completed an objective: then deleting it and undoing the Done is the primary choice, keeping the Done is secondary, and Keep it is quiet. Plan changes never use it.
 
 ## Charts
 

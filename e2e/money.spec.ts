@@ -170,3 +170,44 @@ test('the review keeps Save near the figures: last values are buttons, the goal 
   await expect(page.getByRole('button', { name: 'Undo Money review', exact: true })).toBeVisible();
   expect((await saved(page)).moneyReviews.at(-1)).toMatchObject({ debt: 500000, goalId: 'money' });
 });
+
+test('deleting a review that completed the objective asks first, and undo leaves no orphan Done', async ({
+  page,
+}) => {
+  await open(page);
+  const record = page.getByRole('button', { name: 'Record Money review', exact: true });
+  const reopen = page.getByRole('button', { name: /^Open Money review/ });
+  const status = async () => {
+    const state = await saved(page);
+    const review = state.moneyReviews.find((r) => r.date === SUN);
+    return {
+      review: !!review,
+      status: Object.values(state.days)
+        .flatMap((d) => d.blocks)
+        .find((b) => b.title === 'Money review' && b.id.startsWith(SUN))?.status,
+    };
+  };
+  for (const choice of ['Delete review and undo', 'Delete review, keep Done'] as const) {
+    await record.click();
+    await page.getByLabel('Total savings ($)', { exact: true }).fill('2400');
+    await page.getByRole('button', { name: 'Save review', exact: true }).click();
+    await expect(reopen).toBeVisible();
+    await reopen.click();
+    await page.getByRole('button', { name: 'Delete this review', exact: true }).click();
+    // Nothing is deleted until a choice is made; Keep it closes the question.
+    await expect(page.getByText(/This review completed your money review/)).toBeVisible();
+    await page.getByTestId('confirm-remove').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: 'test-results/money-delete-confirm.png' });
+    await page.getByRole('button', { name: 'Keep it', exact: true }).click();
+    expect(await status()).toEqual({ review: true, status: 'done' });
+    await page.getByRole('button', { name: 'Delete this review', exact: true }).click();
+    await page.getByRole('button', { name: choice, exact: true }).click();
+    if (choice === 'Delete review and undo') {
+      await expect(record).toBeVisible();
+      expect(await status()).toEqual({ review: false, status: 'planned' });
+    } else {
+      await expect(reopen).toBeVisible();
+      expect(await status()).toEqual({ review: false, status: 'done' });
+    }
+  }
+});

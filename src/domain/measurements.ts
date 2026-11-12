@@ -10,7 +10,7 @@ import {
   shortDate,
   weekdayShort,
 } from './model';
-import { setStatus } from './planner';
+import { doneOccurrenceDay, setStatus } from './planner';
 import { fromGrams, toGrams, validateMeasurements } from './records';
 
 /**
@@ -124,9 +124,7 @@ export function deleteMeasurement(
   if (!measurement) throw new Error('This measurement no longer exists.');
   let next: State = { ...state, measurements: state.measurements.filter((m) => m.id !== id) };
   if (options.undoObjective && measurement.occurrenceId) {
-    const day = Object.values(next.days).find((d) =>
-      d.blocks.some((b) => b.id === measurement.occurrenceId && b.status === 'done'),
-    );
+    const day = doneOccurrenceDay(next.days, measurement.occurrenceId);
     if (day) next = withDay(next, setStatus(day, measurement.occurrenceId, 'planned'));
   }
   return next;

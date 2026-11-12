@@ -37,7 +37,7 @@ Settings opens from the header. Trading opens as a page above the tabs.
 | Rule-adherence review | Checkpoints and any broken rule                        |
 | Trading review        | Eight PASS or FAIL items and any hard violation        |
 
-A record and the Done it earns are saved together, so neither exists without the other.
+A record and the Done it earns are saved together, so neither exists without the other. Deleting a record asks once first. Deleting a weight or money review that completed its objective offers to undo that Done in the same save, or to keep it Done.
 
 ## Scheduling
 

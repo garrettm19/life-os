@@ -4,11 +4,16 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Changed
+
+- Deleting a saved record (a log entry, weight, money review, skill checkpoint or weekly review) asks once with a small card first, so nothing disappears on one tap.
+
 ### Fixed
 
 - Editing a block no longer undoes a Done recorded while the editor was open.
 - Switching a weight between lb and kg converts the number in the field, so 180 lb is never saved as 180 kg. Switching back shows the number as typed.
 - Editing a program, routine or goal inside the demo keeps the DEMO tag and Start tracking, so the demo's fictional history is never labeled as yours. Start tracking keeps the edits.
+- Deleting a money review that completed its objective asks whether to undo that Done too, so a review never leaves behind a Done it no longer backs.
 
 ## 1.4.0 - 2026-11-04
 

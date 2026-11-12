@@ -15,9 +15,10 @@ import {
   previousReview,
   saveMoneyReview,
 } from '../domain/money';
-import { setStatus } from '../domain/planner';
+import { doneOccurrenceDay, setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { Disclosure, LinkButton } from './controls';
 import { newId } from './ids';
 import { palette, type } from './theme';
@@ -71,6 +72,10 @@ function MoneyForm({ target, close }: { target: MoneyTarget; close: () => void }
   const [note, setNote] = useState(existing?.note ?? '');
   const [goalId, setGoalId] = useState(existing?.goalId ?? previous?.goalId ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // A review that completed its objective, still Done: deleting it asks what happens to the Done.
+  const linkedDone =
+    !!existing?.occurrenceId && !!doneOccurrenceDay(state.days, existing.occurrenceId);
   // One ID per open form: a repeated Save corrects the same review instead of adding another.
   const [id] = useState(() => existing?.id ?? newId('money'));
   const set = (field: keyof Texts, value: string) => {
@@ -266,15 +271,37 @@ function MoneyForm({ target, close }: { target: MoneyTarget; close: () => void }
           }
         />
       )}
-      {existing && (
-        <Button
-          secondary
-          title="Delete this review"
-          onPress={() =>
-            void change((s) => deleteMoneyReview(s, existing.id)).then((ok) => ok && close())
-          }
-        />
-      )}
+      {existing &&
+        (!confirmDelete ? (
+          <Button secondary title="Delete this review" onPress={() => setConfirmDelete(true)} />
+        ) : linkedDone ? (
+          <ConfirmRemove
+            message="This review completed your money review. Delete it and undo that, or keep the money review done?"
+            remove={{
+              title: 'Delete review and undo',
+              onPress: () =>
+                void change((s) => deleteMoneyReview(s, existing.id, { undo: true })).then(
+                  (ok) => ok && close(),
+                ),
+            }}
+            also={{
+              title: 'Delete review, keep Done',
+              onPress: () =>
+                void change((s) => deleteMoneyReview(s, existing.id)).then((ok) => ok && close()),
+            }}
+            keep={() => setConfirmDelete(false)}
+          />
+        ) : (
+          <ConfirmRemove
+            message="Delete this review? It leaves your history and Progress."
+            remove={{
+              title: 'Delete review',
+              onPress: () =>
+                void change((s) => deleteMoneyReview(s, existing.id)).then((ok) => ok && close()),
+            }}
+            keep={() => setConfirmDelete(false)}
+          />
+        ))}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Blank means not reported, not zero. These totals cover only what you enter here, so they are
         not a full net worth. Private: never on the widget, never sent anywhere.

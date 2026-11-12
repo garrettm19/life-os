@@ -13,6 +13,7 @@ import {
 import { useApp } from '../state/app-state';
 import { shortDate } from './chart-scale';
 import { Button, Chip, Field, SectionLabel, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { Disclosure, LinkButton } from './controls';
 import { newId } from './ids';
 import { palette, type } from './theme';
@@ -31,6 +32,7 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
   const [obstacle, setObstacle] = useState(saved?.obstacle ?? '');
   const [adjustment, setAdjustment] = useState(saved?.adjustment ?? '');
   const [noChange, setNoChange] = useState(saved?.noChange ?? false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const done = (ok: boolean) => ok && close();
   return (
     <Sheet title={`Week of ${shortDate(weekStart)}`} visible close={close}>
@@ -86,13 +88,19 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
           ).then(done)
         }
       />
-      {saved && (
-        <Button
-          secondary
-          title="Remove this review"
-          onPress={() => void change((s) => deleteWeeklyReview(s, weekStart)).then(done)}
-        />
-      )}
+      {saved &&
+        (confirmDelete ? (
+          <ConfirmRemove
+            message="Remove this review? The week's answers are cleared; your plan is unchanged."
+            remove={{
+              title: 'Remove review',
+              onPress: () => void change((s) => deleteWeeklyReview(s, weekStart)).then(done),
+            }}
+            keep={() => setConfirmDelete(false)}
+          />
+        ) : (
+          <Button secondary title="Remove this review" onPress={() => setConfirmDelete(true)} />
+        ))}
     </Sheet>
   );
 }

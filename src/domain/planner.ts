@@ -475,6 +475,18 @@ export function editBlock(
     : [...day.blocks, next];
   return revision(day, blocks, current ? 'Edit block' : 'Add block', now);
 }
+/**
+ * The day holding a Done occurrence, found by its block ID wherever it sits (a moved occurrence keeps
+ * its ID on another day), or null when it is not done. A record that completed an objective (a
+ * weight, a money review) is linked by this ID, so deleting the record can undo the right block.
+ */
+export function doneOccurrenceDay(days: Record<string, Day>, blockId: string): Day | null {
+  return (
+    Object.values(days).find((d) =>
+      d.blocks.some((b) => b.id === blockId && b.status === 'done'),
+    ) ?? null
+  );
+}
 export function setStatus(
   day: Day,
   id: string,

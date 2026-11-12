@@ -195,6 +195,12 @@ test('the life log adds, edits and deletes entries without touching objectives',
   expect(state.days[MON].blocks.every((b) => b.status === 'planned')).toBe(true);
   await page.getByRole('button', { name: 'Edit log entry: Synthetic edited session' }).click();
   await page.getByRole('button', { name: 'Delete this entry', exact: true }).click();
+  // One small confirm: Keep it leaves the entry, Delete entry removes it.
+  await expect(page.getByText('Delete this entry? It leaves your log.')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep it', exact: true }).click();
+  expect((await saved(page)).lifeLog).toHaveLength(1);
+  await page.getByRole('button', { name: 'Delete this entry', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete entry', exact: true }).click();
   await expect(page.getByText('Synthetic edited session', { exact: true })).toHaveCount(0);
   state = await saved(page);
   expect(state.lifeLog).toEqual([]);
@@ -308,6 +314,7 @@ test('deleting a weight that completed a weigh-in asks what happens to the weigh
   await page.getByLabel('Weight in lb', { exact: true }).fill('180.4');
   await page.getByRole('button', { name: 'Save weight', exact: true }).click();
   await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
+  await page.getByRole('button', { name: 'Delete this weight', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Delete weight and undo the weigh-in', exact: true }),
   ).toBeVisible();

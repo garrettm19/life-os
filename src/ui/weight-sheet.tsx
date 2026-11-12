@@ -9,9 +9,10 @@ import {
   recordWeight,
   weightIn,
 } from '../domain/measurements';
-import { setStatus } from '../domain/planner';
+import { doneOccurrenceDay, setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { newId } from './ids';
 import { palette, type } from './theme';
 
@@ -58,11 +59,9 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
             (m.occurrenceId === target.occurrence?.block.id || m.date === date),
         )
       : undefined);
-  const linkedDone = existing?.occurrenceId
-    ? Object.values(state.days)
-        .flatMap((d) => d.blocks)
-        .some((b) => b.id === existing.occurrenceId && b.status === 'done')
-    : false;
+  const linkedDone =
+    !!existing?.occurrenceId && !!doneOccurrenceDay(state.days, existing.occurrenceId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const last = lastWeight(state.measurements, existing?.id);
   const [unit, setUnit] = useState<WeightUnit>(
     existing?.entered.unit ?? last?.entered.unit ?? 'lb',
@@ -204,39 +203,37 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           }
         />
       )}
-      {existing && !linkedDone && (
-        <Button
-          secondary
-          title="Delete this weight"
-          onPress={() =>
-            void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close())
-          }
-        />
-      )}
-      {existing && linkedDone && (
-        <View style={{ gap: 8 }}>
-          <Text style={styles.muted}>
-            This weight completed a weigh-in. Deleting it removes it from your history and progress;
-            choose what happens to the weigh-in.
-          </Text>
-          <Button
-            secondary
-            title="Delete weight, keep weigh-in done"
-            onPress={() =>
-              void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close())
-            }
+      {existing &&
+        (!confirmDelete ? (
+          <Button secondary title="Delete this weight" onPress={() => setConfirmDelete(true)} />
+        ) : linkedDone ? (
+          <ConfirmRemove
+            message="This weight completed a weigh-in. Deleting it removes it from your history and Progress; choose what happens to the weigh-in."
+            remove={{
+              title: 'Delete weight and undo the weigh-in',
+              onPress: () =>
+                void change((s) => deleteMeasurement(s, existing.id, { undoObjective: true })).then(
+                  (ok) => ok && close(),
+                ),
+            }}
+            also={{
+              title: 'Delete weight, keep weigh-in done',
+              onPress: () =>
+                void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close()),
+            }}
+            keep={() => setConfirmDelete(false)}
           />
-          <Button
-            secondary
-            title="Delete weight and undo the weigh-in"
-            onPress={() =>
-              void change((s) => deleteMeasurement(s, existing.id, { undoObjective: true })).then(
-                (ok) => ok && close(),
-              )
-            }
+        ) : (
+          <ConfirmRemove
+            message="Delete this weight? It leaves your history and Progress."
+            remove={{
+              title: 'Delete weight',
+              onPress: () =>
+                void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close()),
+            }}
+            keep={() => setConfirmDelete(false)}
           />
-        </View>
-      )}
+        ))}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Private. Stays on this device and off the Home Screen widget. One weight per date.
       </Text>
