@@ -130,7 +130,22 @@ export function TodayHero({
 }) {
   const cleared = progress.cleared;
   const led = heroLead(streak, week, cleared);
+  // With yesterday to finish, its line takes the note's row, with the best run at its end.
   const lead = finish ? { ...led, note: null } : led;
+  const bestText = lead.best !== null && (
+    <Text
+      maxFontSizeMultiplier={1.3}
+      style={{
+        ...fonts.semibold,
+        fontSize: 15,
+        lineHeight: 20,
+        color: lead.atBest ? palette.doneText : palette.label2,
+      }}>
+      {lead.atBest ? 'Your best' : 'Best '}
+      {!lead.atBest && <Text style={fonts.figure}>{lead.best}</Text>}
+    </Text>
+  );
+  const noteRow = !finish && (lead.figure !== null || lead.note || lead.best !== null);
   const sunrise = useWash(
     (c) =>
       `radial-gradient(ellipse at 0% 0%, ${c.washWarm} 0%, ${c.washRose} 30%, ${c.surface} 72%)`,
@@ -174,7 +189,7 @@ export function TodayHero({
           </Text>
         )}
         {/* The figure under the headline, never as it, with the best run at the line's end. */}
-        {(lead.figure !== null || lead.note || lead.best !== null) && (
+        {noteRow && (
           <View style={[styles.spread, { alignItems: 'baseline', columnGap: 8, rowGap: 0 }]}>
             {lead.figure !== null ? (
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexShrink: 1 }}>
@@ -205,19 +220,7 @@ export function TodayHero({
                 {lead.note ?? ''}
               </Text>
             )}
-            {lead.best !== null && (
-              <Text
-                maxFontSizeMultiplier={1.3}
-                style={{
-                  ...fonts.semibold,
-                  fontSize: 15,
-                  lineHeight: 20,
-                  color: lead.atBest ? palette.doneText : palette.label2,
-                }}>
-                {lead.atBest ? 'Your best' : 'Best '}
-                {!lead.atBest && <Text style={fonts.figure}>{lead.best}</Text>}
-              </Text>
-            )}
+            {bestText}
           </View>
         )}
       </View>
@@ -228,21 +231,22 @@ export function TodayHero({
             flexDirection: 'row',
             alignItems: 'center',
             // The 44 pt targets reach into the card's gaps, so the line takes a note's height.
-            marginTop: -16,
-            marginBottom: -12,
+            marginTop: -14,
+            marginBottom: -14,
             marginRight: -12,
           }}>
           <PressableScale
             accessibilityRole="button"
             accessibilityLabel={`Finish yesterday: ${finish.remaining} still open`}
             onPress={finish.onOpen}
-            containerStyle={{ flexShrink: 1 }}
+            containerStyle={{ flex: 1 }}
             style={{ minHeight: 44, justifyContent: 'center' }}>
             <Text maxFontSizeMultiplier={1.4} style={{ ...type.meta, color: palette.label2 }}>
               Yesterday · {finish.remaining} still open ·{' '}
               <Text style={{ ...fonts.semibold, color: palette.label }}>Finish ›</Text>
             </Text>
           </PressableScale>
+          {bestText}
           <PressableScale
             accessibilityRole="button"
             accessibilityLabel="Hide Finish yesterday"
