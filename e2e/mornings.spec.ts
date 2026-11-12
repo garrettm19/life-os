@@ -155,9 +155,7 @@ test('without the offer, the anchor starts today and earlier ticks are not count
     route: '/programs',
   });
   await page.getByRole('button', { name: `Configure ${ROW}`, exact: true }).click();
-  await page
-    .getByLabel('Up by · morning anchor', { exact: true })
-    .fill('07:10');
+  await page.getByLabel('Up by · morning anchor', { exact: true }).fill('07:10');
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   expect((await saved(page)).programs[0].routines[0].anchor).toEqual({
     history: [{ from: TODAY, upBy: 430 }],

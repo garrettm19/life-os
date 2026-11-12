@@ -440,7 +440,9 @@ function ExerciseCard({
       )}
       <View style={styles.spread}>
         <Text style={{ ...type.heading, flexShrink: 1 }}>{exercise.name}</Text>
-        <Text style={{ ...type.meta, color: palette.label2 }}>{planText(exercise, { previous: !!previous })}</Text>
+        <Text style={{ ...type.meta, color: palette.label2 }}>
+          {planText(exercise, { previous: !!previous })}
+        </Text>
       </View>
       {note ? <Text style={styles.muted}>{note}</Text> : null}
       <Text style={{ ...type.meta }}>
