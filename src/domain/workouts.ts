@@ -61,13 +61,21 @@ export function repsText(e: { repsMin: number; repsMax: number | null }): string
     : `${e.repsMin} reps`;
 }
 
-/** "3 × 8–10 · 135 lb". */
-export function planText(e: PlannedExercise | SessionExercise): string {
+/**
+ * "3 × 8–10 · 135 lb", or "3 × 8–10 · Bodyweight" for a load of 0. With an earlier session the
+ * load is left out: the "Last" line and the prefilled sets already give it, so the card shows one
+ * load, not three.
+ */
+export function planText(
+  e: PlannedExercise | SessionExercise,
+  { previous = false }: { previous?: boolean } = {},
+): string {
   const plan = 'plan' in e ? e.plan : e;
   if (e.kind === 'time')
     return `${plan.sets} × ${plan.seconds ? secondsText(plan.seconds) : 'timed'}`;
-  const reps = repsText(plan).replace(' reps', '');
-  return `${plan.sets} × ${reps}${plan.load !== null ? ` · ${plan.load} ${e.unit}` : ''}`;
+  const reps = `${plan.sets} × ${repsText(plan).replace(' reps', '')}`;
+  if (plan.load === null || previous) return reps;
+  return `${reps} · ${plan.load === 0 ? 'Bodyweight' : `${plan.load} ${e.unit}`}`;
 }
 
 function snapshot(e: PlannedExercise): SessionExercise {
@@ -292,7 +300,8 @@ export function setsText(sets: LoggedSet[], unit: string): string {
   if (loads.size === 1) {
     const load = sets[0].load;
     const reps = sets.map((s) => s.reps ?? 0).join(', ');
-    return load === null ? `${reps} reps` : `${load} ${unit} × ${reps}`;
+    if (load === null) return `${reps} reps`;
+    return load === 0 ? `Bodyweight × ${reps}` : `${load} ${unit} × ${reps}`;
   }
   return `${sets.map((s) => `${s.load ?? 0} × ${s.reps ?? 0}`).join(', ')} ${unit}`;
 }

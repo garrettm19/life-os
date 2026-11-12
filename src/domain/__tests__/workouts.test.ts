@@ -12,6 +12,7 @@ import {
   saveSession,
   saveTemplate,
   sessionFor,
+  planText,
   setsText,
   startSession,
   undoWorkout,
@@ -182,5 +183,38 @@ describe('previous performance identity', () => {
     const renamed = { ...current.exercises[0], exerciseId: 'other-plan-bench' };
     expect(previousPerformance(state, renamed, current)).not.toBeNull();
     expect(previousPerformance(state, { ...renamed, unit: 'kg' }, current)).toBeNull();
+  });
+});
+
+describe('one load on a workout card', () => {
+  const lift = {
+    id: 'x1',
+    name: 'Example press',
+    kind: 'reps',
+    unit: 'lb',
+    sets: 3,
+    repsMin: 8,
+    repsMax: 10,
+    load: 55,
+  } as unknown as Parameters<typeof planText>[0];
+  it('gives the plan load when there is no earlier session', () => {
+    expect(planText(lift)).toBe('3 × 8–10 · 55 lb');
+  });
+  it('leaves the load to the Last line once there is an earlier session', () => {
+    expect(planText(lift, { previous: true })).toBe('3 × 8–10');
+  });
+  it('reads a load of 0 as bodyweight, before and after a session', () => {
+    const dips = { ...lift, load: 0 } as typeof lift;
+    expect(planText(dips)).toBe('3 × 8–10 · Bodyweight');
+    expect(planText(dips, { previous: true })).toBe('3 × 8–10');
+    expect(
+      setsText(
+        [
+          { load: 0, reps: 8 },
+          { load: 0, reps: 7 },
+        ] as never,
+        'lb',
+      ),
+    ).toBe('Bodyweight × 8, 7');
   });
 });
