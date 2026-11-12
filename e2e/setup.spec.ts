@@ -201,7 +201,8 @@ test('local setup import keeps every program and allows routine configuration', 
   };
   await importSetup(page, large, 'example-setup.json');
   await page.getByRole('link', { name: 'Programs', exact: true }).click();
-  // All 33 programs stay visible, each with its own way to add an objective.
+  // All 33 programs stay visible, each with its own way to add an objective: with nothing
+  // active yet, nothing is folded away.
   await expect(
     page.getByRole('button', { name: 'Add another objective', exact: true }),
   ).toHaveCount(33);
@@ -213,10 +214,12 @@ test('local setup import keeps every program and allows routine configuration', 
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
   await page.reload();
+  // With one program active, the 32 still paused wait in their fold, and every one is kept.
+  await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Paused programs, 32. Show', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Add another objective', exact: true }),
   ).toHaveCount(33);
-  await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
 });
 
 test('Load my setup on the empty Today opens Files and previews the setup in place', async ({

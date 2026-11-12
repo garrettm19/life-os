@@ -50,7 +50,7 @@ A record and the Done it earns are saved together, so neither exists without the
 - **Moving workouts.** A planned workout and the later ones in its program can move forward a day, with a preview. The move applies completely or not at all, and can be reversed exactly.
 - **The order of the day.** One ordering rule (`dayListOrder` in `src/domain/day-order.ts`) sorts Today and the large widget. Changing the order rewrites no history.
 - **Blocks added by hand** can be deleted on today or later, after one confirm; the plan they left is kept as a revision (`removeBlock` in `src/domain/planner.ts`). A routine's occurrence is skipped or paused instead.
-- **Paused routines** wait behind a closed Paused fold in their program card, and a program with everything paused moves into a Paused programs fold at the foot of Programs. The folds close on every visit, and a search shows everything.
+- **Paused routines** wait behind a closed Paused fold in their program card, and a program with everything paused moves into a Paused programs fold at the foot of Programs. The folds close on every visit, a search shows everything, and with nothing active (a setup imported all paused) nothing is folded.
 - **Browsing.** Opening a past date creates nothing, and routine edits apply to today and later only ([ADR 4](decisions/0004-history-is-never-rewritten.md)).
 
 ## Day Cleared and streaks

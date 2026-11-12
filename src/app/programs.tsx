@@ -480,8 +480,10 @@ export default function ProgramsScreen() {
   if (shown === null && ready) setShown(shownNow);
   const folded = (r: Routine) => !r.enabled && !shownNow.has(r.id);
   const allPaused = (p: Program) => p.routines.length > 0 && p.routines.every(folded);
-  const listed = folding ? programs.filter((p) => !allPaused(p)) : programs;
-  const pausedPrograms = folding ? programs.filter(allPaused) : [];
+  // With nothing active (a setup imported all paused), there is nothing to fold away from.
+  const foldAll = folding && programs.some((p) => p.routines.length > 0 && !allPaused(p));
+  const listed = foldAll ? programs.filter((p) => !allPaused(p)) : programs;
+  const pausedPrograms = foldAll ? programs.filter(allPaused) : [];
   const bundled = !!editing?.routine.bundledInto;
   // Saving keeps the stored repeat and its anchor while the count is unchanged. A longer repeat
   // from a setup file is offered as a fifth choice, so it shows selected and saves unchanged.
@@ -532,7 +534,7 @@ export default function ProgramsScreen() {
   const closeEditor = () => (changed ? setConfirmDiscard(true) : setEditing(null));
   const editingProgram = draft !== null && state.programs.some((p) => p.id === draft.id);
   /** A program's card: its routines, paused ones folded away, and its actions. */
-  const programCard = (p: Program, fold = folding) => (
+  const programCard = (p: Program, fold = foldAll) => (
     <View key={p.id} style={[styles.card, { gap: 4, paddingTop: 16, paddingBottom: 4 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 6 }}>
         <IconTile name={programArea(p).symbol} tone={programArea(p).tone} size={40} />
