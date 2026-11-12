@@ -12,8 +12,8 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - A rest day on Today reads "Rest day · next up: Chest / Triceps" with a small Train anyway button. Once the day is cleared, Train anyway moves into More for today, so a finished day stops offering more work.
 - An untouched day shows its count once: "0/5" no longer sits beside "5 to clear the day". The goal line appears with the first Done, and "One more to clear the day" and "Not on the list yet" still show.
 - The Day Clear streak tile on Progress shows the run and the best run, without a "−2 vs 4 weeks ago" change. Over a year, a tile with nothing recorded a year before shows its figure alone.
-- A study week with every day kept reads "Last week all 5 study days kept, up from 5 of 6", so a full week never reads like no change.
-- Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side.
+- A study week with every day kept reads "all 5 study days kept", on either side of a comparison ("down from all 5"). Up or down is said only when the days kept moved the same way as their share, as the bars show it; otherwise both weeks are given ("Last week all 5 study days kept; 5 of 6 the week before").
+- Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side. Every "since" in that card gives the date the same way, without the weekday.
 - One name per concept: Week says Not recorded for a day never opened, as Today and the streak details do; the streak details are titled Day Clear streak; with no run going they say "Clear a day to start a new run" instead of "New run started"; and the best run under Best reads "21 days".
 
 ### Fixed
@@ -23,7 +23,8 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - A weight at either end of the range stays valid when switched to the other unit: kg entries now run 9.1–317.5, the same 20–700 lb range.
 - Editing a program, routine or goal inside the demo keeps the DEMO tag and Start tracking, so the demo's fictional history is never labeled as yours. Start tracking keeps the edits.
 - Deleting a money review that completed its objective asks whether to undo that Done too, so a review never leaves behind a Done it no longer backs.
-- The Days cleared and Study days sparklines on Progress end on the last finished week instead of dipping on the week in progress, and the tile says this week so far in words ("This week so far · 2"). Over a year, the four weeks in progress are left out the same way.
+- The Days cleared and Study days sparklines on Progress end on the last finished week instead of dipping on the week in progress, and the tile says this week so far in words ("This week so far · 2"), unless this week holds the whole figure. Over a year, the four weeks in progress are left out the same way and the tile says "Last 4 weeks so far". A tile with no line leaves no gap above that caption.
+- The Day Clear and Study sparklines on Progress need three points, so a Day Clear streak tile with only two no longer draws the earlier run falling to today's.
 
 ## 1.4.0 - 2026-11-04
 

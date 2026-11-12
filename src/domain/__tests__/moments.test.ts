@@ -222,6 +222,9 @@ describe('the long view', () => {
     expect(items[1].detail).toBe(`${lift.name} ${lift.from} → ${lift.to} ${lift.unit}`);
     expect(lift.to).toBeGreaterThan(lift.from);
     expect(items[2].detail).toMatch(/^\$6,400\.00 → \$[\d,.]+ since /);
+    // One date form in the card, as body weight's line has it: "since Oct 4", no weekday.
+    for (const item of items.slice(2))
+      expect(item.detail).toMatch(/[Ss]ince [A-Z][a-z]{2} \d{1,2}(, \d{4})?$/);
     // Body weight: the latest weigh-in, and which way it moved since the first, in words that
     // never call it progress or a setback.
     const weights = demo.measurements

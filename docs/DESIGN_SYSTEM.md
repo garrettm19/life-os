@@ -80,7 +80,8 @@ Charts are drawn with views (`line-chart.tsx`, `bar-chart.tsx`, `habit-bars.tsx`
 - The y axis is labeled at round values (`niceScale`). Lines are drawn between recorded points only; a gap stays a gap.
 - Pressing and dragging snaps a readout to the nearest point, and **Show as list** swaps the plot for rows that VoiceOver reads as sentences.
 - With fewer than two points a card shows its headline and one line, never an empty frame.
-- A tile's sparkline of totals leaves out the span still in progress, so it never ends on a dip early in the week; the tile gives this week so far in words instead.
+- A tile's sparkline of totals leaves out the span still in progress, so it never ends on a dip early in the week; the tile gives that span so far in words instead, unless it is the whole figure.
+- The Day Clear and Study sparklines need three points: two are a comparison, and a streak's two would draw a broken run as a fall.
 
 ## Motion
 

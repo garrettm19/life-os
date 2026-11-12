@@ -110,8 +110,8 @@ async function expectCards(page: Page, data: ProgressData) {
       // line that only says nothing was recorded a year ago.
       if (tile.change) await expect(el).toContainText(tile.change);
       else await expect(el).not.toContainText(/ vs |Nothing recorded/);
-      // A sparkline needs two points: one is not a trend. A total's line leaves out the week in
-      // progress, which the tile gives in words.
+      // A sparkline needs three points: one is not a trend, and two are only a comparison. A
+      // total's line leaves out the week in progress, which the tile gives in words.
       await expect(el.getByTestId('sparkline')).toHaveCount(tile.spark.length > 1 ? 1 : 0);
       if (tile.soFar) await expect(el).toContainText(tile.soFar);
     } else await expect(el).toContainText(tile.empty!);
@@ -144,7 +144,7 @@ test('mid-week, a total’s sparkline ends on last week and the tile says this w
   const state = demoState(today);
   const data = progress(state, DEFAULT_PROGRESS_RANGE, today);
   const cleared = data.tiles.find((t) => t.id === 'cleared')!;
-  expect(cleared.soFar).toMatch(/^This week so far · [1-9]\d*$/);
+  expect(cleared.soFar).toMatch(/^This week so\u00a0far\u00a0·\u00a0[1-9]\d*$/);
   expect(cleared.spark.at(-1)!.date).toBe('2026-10-12');
   await seed(page, state, { clock: new Date(2026, 9, 21, 20), route: '/review' });
   const tile = page.getByTestId('tile-cleared');
