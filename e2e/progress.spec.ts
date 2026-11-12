@@ -106,7 +106,10 @@ async function expectCards(page: Page, data: ProgressData) {
     await expect(el).toContainText(tile.label);
     if (tile.value) {
       await expect(el).toContainText(tile.value);
-      await expect(el).toContainText(tile.change!);
+      // A change only where there is one to say: never on the streak, and over a year never a
+      // line that only says nothing was recorded a year ago.
+      if (tile.change) await expect(el).toContainText(tile.change);
+      else await expect(el).not.toContainText(/ vs |Nothing recorded/);
       // A sparkline needs two points: one is not a trend. A total's line leaves out the week in
       // progress, which the tile gives in words.
       await expect(el.getByTestId('sparkline')).toHaveCount(tile.spark.length > 1 ? 1 : 0);

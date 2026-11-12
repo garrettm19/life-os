@@ -1,8 +1,9 @@
 import { anchorRoutine, backOnTime, morningOn } from './anchor';
 import { State, dateObject, displayDate, displayTime, shiftDate, weekStartOf } from './model';
-import { weightIn } from './measurements';
+import { weightChange, weightHistory } from './measurements';
 import { formatMoney } from './money';
 import { dayClearStreak, dayOutcome } from './objectives';
+import { weightChangeText } from './progress';
 
 // Progress worth feeling, read only from what was recorded: a lift heavier than every earlier
 // session, the Day Clear streak reaching a new best or a round number, a money review that shows
@@ -288,18 +289,20 @@ export function journey(state: State, today: string): Highlight[] {
       value: formatMoney(savings.at(-1)!.savings! - savings[0].savings!, currency),
       detail: `Since ${displayDate(savings[0].date)}`,
     });
-  // Body weight from the first weigh-in to the latest, in the latest one's unit. Its direction is
-  // the user's to read: it is never called progress or a setback.
-  const weights = state.measurements
+  // Body weight from the first weigh-in to the latest, in the latest one's unit, with the measured
+  // change in words ("Down 3.2 lb since Sep 30"), as the Body weight card says it. Its direction
+  // is the user's to read: it is never called progress or a setback.
+  const weighIns = state.measurements
     .filter((m) => m.kind === 'body-weight' && m.date <= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (weights.length > 1) {
-    const unit = weights.at(-1)!.entered.unit;
+    .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+  if (weighIns.length > 1) {
+    const unit = weighIns.at(-1)!.entered.unit;
+    const measured = weightChange(weightHistory({ ...state, measurements: weighIns }, unit))!;
     out.push({
       id: 'weight',
       label: 'Body weight',
-      value: `${weightIn(weights.at(-1)!, unit)} ${unit}`,
-      detail: `${weightIn(weights[0], unit)} ${unit} on ${displayDate(weights[0].date)}`,
+      value: `${measured.to.value} ${unit}`,
+      detail: weightChangeText(measured.change, unit, measured.from.date, today),
     });
   }
   return out;

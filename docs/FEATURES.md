@@ -75,7 +75,7 @@ Streaks and progress moments are derived from records on every read, so Undo and
 
 Charts plot recorded values only: no interpolation, no invented points and no scores. Each chart has a plain sentence above it ("95% of required objectives done in the last 4 weeks"), can be read by pressing and dragging, and has a list view for VoiceOver. A weekly review records one deliberate adjustment, or a choice to change nothing.
 
-The key figures sit in tiles with a small sparkline. A tile that adds up days (Days cleared, Study days) ends its line on the last finished week, because the week in progress is only part of one, and says that week in words ("This week so far · 2") once it has something. The Day Clear streak's line ends on today.
+The key figures sit in tiles with a small sparkline. A tile that adds up days (Days cleared, Study days) ends its line on the last finished week, because the week in progress is only part of one, and says that week in words ("This week so far · 2") once it has something. The Day Clear streak's line ends on today. The streak tile shows the run and the best run, never a change against a range ago, since a run that restarts would only ever count down. Other tiles compare with the previous range in the same units on both sides; over a year, a tile with nothing a year before shows its figure alone. Body weight says which way it moved since the first weigh-in, in the unit it is shown in ("Down 3.2 lb since Sep 30"), and never calls it progress or a setback.
 
 ## Trading
 

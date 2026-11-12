@@ -167,6 +167,14 @@ export function rangeWindow(range: ProgressRange, today: string): RangeWindow {
   };
 }
 
+/**
+ * Why a tile has no change: "Nothing recorded in the previous 4 weeks". Over a year that is the
+ * usual case for a plan younger than two years, so the year range shows the figure alone (null).
+ */
+function nothingBefore(window: RangeWindow, words: string): string | null {
+  return window.range === '1y' ? null : words;
+}
+
 /** "+3 vs previous 12 weeks", "−2 vs previous 12 weeks", "Same as previous 12 weeks". */
 export function changeText(delta: number, versus: string): string {
   if (delta === 0) return `Same as ${versus}`;
@@ -316,8 +324,8 @@ export type Tile = {
 };
 
 /**
- * The Day Clear streak now, against the streak as it stood at the same point a range ago. `runs` is
- * `dayClearRuns` through today.
+ * The Day Clear streak now and the best run, with the run as it stood at the end of each week for
+ * the sparkline. `runs` is `dayClearRuns` through today.
  */
 export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
   const label = 'Day Clear streak';
@@ -344,8 +352,6 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
     while (next < runs.length && runs[next].date <= date) found = runs[next++];
     return found;
   };
-  const then = at(window.previous.to);
-  const delta = then ? current - then.current : null;
   const spark: Point[] = [];
   for (const weekStart of window.weekStarts) {
     const end = shiftDate(weekStart, 6);
@@ -358,9 +364,10 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
     label,
     value: plural(current, 'day'),
     detail: `Best ${best}`,
-    delta,
-    change:
-      delta === null ? `Nothing recorded ${window.words.ago}` : changeText(delta, window.words.ago),
+    // No change against a range ago: a run restarts at 0, so "−2 vs 4 weeks ago" would only ever
+    // count down a break. The figure and the best run say it.
+    delta: null,
+    change: null,
     spark: sparkOf(window, spark, 'last'),
     soFar: null,
     empty: null,
@@ -408,7 +415,7 @@ export function clearedTile(window: RangeWindow, runs: StreakRun[]): Tile {
     delta,
     change:
       delta === null
-        ? `Nothing recorded in the ${window.words.previous}`
+        ? nothingBefore(window, `Nothing recorded in the ${window.words.previous}`)
         : changeText(delta, window.words.previous),
     spark: sparkOf(
       window,
@@ -492,7 +499,7 @@ export function studyTile(window: RangeWindow, days: StudyDays): Tile {
     delta,
     change:
       delta === null
-        ? `Nothing recorded in the ${window.words.previous}`
+        ? nothingBefore(window, `Nothing recorded in the ${window.words.previous}`)
         : changeText(delta, window.words.previous),
     spark: sparkOf(
       window,
@@ -656,6 +663,23 @@ export type WeightCard = CardText & {
   change: number | null;
 };
 
+/**
+ * A measured body-weight change in words, in the unit it is shown in: "Down 3.2 lb since Sep 30",
+ * "Up 1.1 lb since Sep 30" or "No change since Sep 30". It states the direction and never judges
+ * it: which way is progress is the user's call.
+ */
+export function weightChangeText(
+  change: number,
+  unit: WeightUnit,
+  since: string,
+  today: string,
+): string {
+  const from = dateText(since, today);
+  return change === 0
+    ? `No change since ${from}`
+    : `${change < 0 ? 'Down' : 'Up'} ${Math.abs(change)} ${unit} since ${from}`;
+}
+
 export function weightCard(state: State, window: RangeWindow): WeightCard {
   const series = weightSince(state, window.from, window.to);
   const points = series?.points ?? [];
@@ -667,9 +691,7 @@ export function weightCard(state: State, window: RangeWindow): WeightCard {
     ? `No weigh-ins ${window.words.within}`
     : !measured
       ? `${last.y} ${unit} on ${dateText(last.date, window.to)}`
-      : measured.change === 0
-        ? `No change since ${dateText(measured.from.date, window.to)}`
-        : `${measured.change < 0 ? 'Down' : 'Up'} ${Math.abs(measured.change)} ${unit} since ${dateText(measured.from.date, window.to)}`;
+      : weightChangeText(measured.change, unit, measured.from.date, window.to);
   return {
     ...cardText(window, headline, points.length, {
       empty: 'Record a weigh-in to start the line.',
@@ -782,7 +804,12 @@ function recentStudy(
     last.weekStart === shiftDate(weekStartOf(window.to), -7)
       ? 'Last week'
       : `The week of ${dateText(last.weekStart, window.to)}`;
-  const text = `${name} ${last.kept} of ${plural(last.eligible, 'study day')} kept`;
+  // Every day kept reads as all of them, so a comparison never sets "5 of 5" against "5 of 6" as
+  // if nothing changed.
+  const text =
+    last.kept === last.eligible && last.eligible > 1
+      ? `${name} all ${last.eligible} study days kept`
+      : `${name} ${last.kept} of ${plural(last.eligible, 'study day')} kept`;
   const before = finished.at(-2);
   if (!before)
     return last.kept === range.kept && last.eligible === range.eligible

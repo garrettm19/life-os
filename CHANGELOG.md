@@ -11,6 +11,9 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - A past day that was not cleared reads as a quiet fact: its "Not cleared" line is secondary text instead of the orange "now" color, and Not cleared in the streak details is faint and regular, never louder than a green Cleared.
 - A rest day on Today reads "Rest day · next up: Chest / Triceps" with a small Train anyway button. Once the day is cleared, Train anyway moves into More for today, so a finished day stops offering more work.
 - An untouched day shows its count once: "0/5" no longer sits beside "5 to clear the day". The goal line appears with the first Done, and "One more to clear the day" and "Not on the list yet" still show.
+- The Day Clear streak tile on Progress shows the run and the best run, without a "−2 vs 4 weeks ago" change. Over a year, a tile with nothing recorded a year before shows its figure alone.
+- A study week with every day kept reads "Last week all 5 study days kept, up from 5 of 6", so a full week never reads like no change.
+- Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side.
 
 ### Fixed
 

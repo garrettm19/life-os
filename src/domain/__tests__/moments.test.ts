@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { withDay } from '../data';
 import { demoState } from '../demo';
-import { State, shiftDate } from '../model';
+import { State, shiftDate, shortDate } from '../model';
 import { ensureChecklistDay, setStatus } from '../planner';
 import {
   STREAK_MARKS,
@@ -17,6 +17,7 @@ import {
   weekMarks,
 } from '../moments';
 import { dayClearStreak, dayOutcome, protectDay } from '../objectives';
+import { toGrams } from '../records';
 
 // Fictional demo data only. Monday, November 9, 2026 is "today".
 const TODAY = '2026-11-09';
@@ -221,12 +222,59 @@ describe('the long view', () => {
     expect(items[1].detail).toBe(`${lift.name} ${lift.from} → ${lift.to} ${lift.unit}`);
     expect(lift.to).toBeGreaterThan(lift.from);
     expect(items[2].detail).toMatch(/^\$6,400\.00 → \$[\d,.]+ since /);
-    // Body weight: the latest weigh-in, with the first one and its date, never called progress.
+    // Body weight: the latest weigh-in, and which way it moved since the first, in words that
+    // never call it progress or a setback.
     const weights = demo.measurements
       .filter((m) => m.kind === 'body-weight' && m.date <= TODAY)
       .sort((a, b) => a.date.localeCompare(b.date));
-    expect(items[4].value).toBe(`${weights.at(-1)!.entered.value} lb`);
-    expect(items[4].detail).toMatch(new RegExp(`^${weights[0].entered.value} lb on `));
+    const first = weights[0].entered.value;
+    const latest = weights.at(-1)!.entered.value;
+    expect(items[4].value).toBe(`${latest} lb`);
+    const moved = Math.round((latest - first) * 10) / 10;
+    expect(moved).not.toBe(0);
+    expect(items[4].detail).toBe(
+      `${moved < 0 ? 'Down' : 'Up'} ${Math.abs(moved)} lb since ${shortDate(weights[0].date)}`,
+    );
+    expect(items[4].detail).not.toMatch(/progress|setback|great|well done/i);
+  });
+
+  it('states body weight’s direction in the latest unit, up, down or unchanged', () => {
+    const weigh = (id: string, date: string, value: number, unit: 'lb' | 'kg' = 'lb') => ({
+      id,
+      kind: 'body-weight' as const,
+      date,
+      at: `${date}T12:00:00.000Z`,
+      grams: toGrams(value, unit),
+      entered: { value, unit },
+      fasted: null,
+      note: '',
+      occurrenceId: null,
+    });
+    const only = (...measurements: ReturnType<typeof weigh>[]): State => ({
+      ...demo,
+      days: {},
+      workoutSessions: [],
+      moneyReviews: [],
+      measurements,
+    });
+    const detail = (s: State) => journey(s, TODAY).find((h) => h.id === 'weight')!.detail;
+    expect(detail(only(weigh('a', '2026-09-30', 180), weigh('b', '2026-11-01', 176.8)))).toBe(
+      'Down 3.2 lb since Sep 30',
+    );
+    expect(detail(only(weigh('a', '2026-09-30', 180), weigh('b', '2026-11-01', 181.1)))).toBe(
+      'Up 1.1 lb since Sep 30',
+    );
+    expect(detail(only(weigh('a', '2026-09-30', 180), weigh('b', '2026-11-01', 180)))).toBe(
+      'No change since Sep 30',
+    );
+    // Read in the latest weigh-in's unit: 180 lb is 81.6 kg.
+    expect(detail(only(weigh('a', '2026-09-30', 180), weigh('b', '2026-11-01', 80.6, 'kg')))).toBe(
+      'Down 1 kg since Sep 30',
+    );
+    // From another year, the date names it.
+    expect(detail(only(weigh('a', '2025-12-30', 180), weigh('b', '2026-11-01', 178)))).toBe(
+      'Down 2 lb since Dec 30, 2025',
+    );
   });
 
   it('says nothing about a kind with no records, and nothing at all on an empty device', () => {

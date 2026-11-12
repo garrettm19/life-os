@@ -160,7 +160,8 @@ test('the change since the start is in How far you have come, open above the ran
     'Bench press, the lift that grew most: 145 to 155 lb, up 10 lb.',
   );
   await expect(lift.getByText('+10 lb', { exact: true })).toBeVisible();
-  await expect(journey).toContainText('181.2 lb on');
+  // Body weight says which way it moved since the first weigh-in (181.2 lb), never judged.
+  await expect(journey.getByText('Down 1.4 lb since Oct 30', { exact: true })).toBeVisible();
 });
 
 /** The numeric y-axis labels of one chart ($5.4k reads 5.4). */

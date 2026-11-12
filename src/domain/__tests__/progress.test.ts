@@ -266,12 +266,13 @@ describe('Day Clear tiles', () => {
   it('reads the streak with the one rule: Not recorded and Protected never break it', () => {
     const data = progress(state, '4w', TODAY);
     expect(dayClearStreak(state, TODAY, TODAY)).toEqual({ current: 4, best: 4 });
+    // The figure and the best run, with no change against a range ago: a run restarts at 0, so
+    // a change would only ever count down a break ("−2 vs 4 weeks ago").
     expect(tile(data, 'streak')).toMatchObject({
       value: '4 days',
       detail: 'Best 4',
-      // Three days 4 weeks ago (Sep 19), four now.
-      delta: 1,
-      change: '+1 vs 4 weeks ago',
+      delta: null,
+      change: null,
       empty: null,
     });
     // The run at the end of each week; a week with nothing recorded carries it.
@@ -337,15 +338,34 @@ describe('Day Clear tiles', () => {
   it('says when there is nothing to compare with', () => {
     const recent = withDays(plan(routine('walk')), cleared('2026-10-16'), cleared(TODAY));
     const data = progress(recent, '12w', TODAY);
-    expect(tile(data, 'streak')).toMatchObject({
-      value: '2 days',
-      delta: null,
-      change: 'Nothing recorded 12 weeks ago',
-    });
+    expect(tile(data, 'streak')).toMatchObject({ value: '2 days', delta: null, change: null });
     expect(tile(data, 'cleared')).toMatchObject({
       value: '2 of 2',
       delta: null,
       change: 'Nothing recorded in the previous 12 weeks',
+    });
+    // Over a year, nothing a year before is the usual case: the tiles show their figures alone.
+    const year = progress(withDays(studyState(), cleared(TODAY)), '1y', TODAY);
+    expect(year.tiles.map((t) => [t.id, t.change])).toEqual([
+      ['streak', null],
+      ['cleared', null],
+      ['study', null],
+    ]);
+  });
+
+  it('never shows a negative change on the streak, even when the run is shorter than before', () => {
+    // A run of five in the previous range, broken, then one day now.
+    const s = withDays(
+      plan(routine('walk')),
+      ...['2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19'].map(cleared),
+      missed('2026-10-16'),
+      cleared(TODAY),
+    );
+    expect(tile(progress(s, '4w', TODAY), 'streak')).toMatchObject({
+      value: '1 day',
+      detail: 'Best 5',
+      delta: null,
+      change: null,
     });
   });
 
@@ -716,6 +736,12 @@ describe('study', () => {
       up = withDays(up, studyDay(shiftDate('2026-11-02', i), i < 5 ? 'done' : 'skipped'));
     expect(progress(up, '4w', '2026-11-09').study!.headline).toBe(
       'Last week 5 of 7 study days kept, up from 3 of 6',
+    );
+    // Every day kept says so in words, so a full week never reads as a bare count beside another.
+    let all = s;
+    for (let i = 0; i < 7; i++) all = withDays(all, studyDay(shiftDate('2026-11-02', i), 'done'));
+    expect(progress(all, '4w', '2026-11-09').study!.headline).toBe(
+      'Last week all 7 study days kept, up from 3 of 6',
     );
     // Before any week has finished, this week's days are the tile's figure: the card never repeats
     // it, and says what starts the chart.
