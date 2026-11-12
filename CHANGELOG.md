@@ -12,7 +12,11 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - On Sunday afternoon and Monday, Today asks "Two minutes on your week?" when the week has at least four recorded days and no review, and opens the review editor. It never shows for the demo or beside an open money review.
 - Backup, Settings and Today say when a backup passes 70% of its 20 MB limit, before an export would be refused.
 
+- A block added by hand on Today can be deleted from its sheet, after one confirm, on today or later. The plan it left is kept as a revision; a routine's occurrence and a past day still only skip.
+
 ### Changed
+
+- Programs lists each program's active routines first, with paused ones behind a closed Paused fold, and moves programs whose routines are all paused into a Paused programs fold at the foot. The folds close on every visit, a search shows everything, and a routine paused during a visit stays in place.
 
 - Today shows at most one housekeeping line: the weekly review, a backup that is due, or a large backup, in that order.
 - The backup reminder on Today exports in one tap. On iPhone, Saved it records the backup and Not now hides the line until the next launch.
