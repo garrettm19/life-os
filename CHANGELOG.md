@@ -9,7 +9,14 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - Finish yesterday: while yesterday is still open, a line in Today's hero card says how much is left and opens that day, where ticking the rest keeps the Day Clear run. An x hides it; only yesterday is offered, never an older day or the demo.
 - The Day Clear streak details show a month calendar: cleared days as seals, protected days ringed, today ringed in orange, and a line with the days cleared that month. Arrows go back month by month, and tapping a day opens it.
 
+- On Sunday afternoon and Monday, Today asks "Two minutes on your week?" when the week has at least four recorded days and no review, and opens the review editor. It never shows for the demo or beside an open money review.
+- Backup, Settings and Today say when a backup passes 70% of its 20 MB limit, before an export would be refused.
+
 ### Changed
+
+- Today shows at most one housekeeping line: the weekly review, a backup that is due, or a large backup, in that order.
+- The backup reminder on Today exports in one tap. On iPhone, Saved it records the backup and Not now hides the line until the next launch.
+- Load my setup on the empty Today opens Files and previews the setup in place, so a setup is restored in two taps; with no program yet, Today no longer shows More for today.
 
 - The first clear after a run ended says Back on track in the celebration, and with no run going and nothing cleared this week Today's hero names the next step ("Clear today to start a new run").
 - The streak details no longer list the last 14 days as rows, open with a four-line explainer (now behind About streaks) or repeat the best run in words.

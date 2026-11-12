@@ -113,7 +113,8 @@ What each widget may show is in [DATA_PRIVACY.md](DATA_PRIVACY.md#home-screen-wi
 - **Backup and restore.** A versioned JSON file of the whole state, saved through the share sheet. Restore validates the file and previews, in counts and labels, what it would replace before anything changes.
 - **Analysis export.** A CSV or JSON file of chosen categories and dates. It cannot be restored.
 - **Setup import.** A `life-os-setup-v1` file merges programs and routines into the device, previewed from a dry run. It never touches recorded history.
-- **Backup reminder.** One quiet line on Today when a backup is due, never a notification.
+- **One housekeeping line.** Today shows at most one quiet line, never a notification, in this order: the weekly review (from Sunday 3 PM through Monday, for a week with at least four recorded days and no review, never beside an open money review), a backup that is due, then a backup above 70% of its 20 MB limit. The backup line exports in one tap; on iPhone, Saved it records the backup and Not now hides the line until the next launch. The size is measured only when Backup or Settings opens.
+- **Load my setup** on the empty Today opens Files and previews the setup in place: two taps from an empty device.
 - **Study reminders** are the only notifications: local, opt-in and never naming a private objective.
 
 ## The demo

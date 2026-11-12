@@ -13,7 +13,7 @@ The constraints and open issues of the current version, in one place. Each item 
 
 - **No sync and no second device.** All data stays on one device ([ADR 1](decisions/0001-local-first-no-backend.md)). Moving to a new phone means a backup and a restore, and a restore replaces the whole state after a preview; nothing is merged.
 - **Backups are unencrypted JSON** saved wherever the user chooses. SQLite on the phone relies on the app sandbox and iOS data protection, not app-level encryption.
-- **The 20 MB backup cap has no retention design.** History grows by design ([ADR 4](decisions/0004-history-is-never-rewritten.md)). Nothing warns before a backup nears the cap; export then refuses with an explanation and changes nothing.
+- **The 20 MB backup cap has no retention design.** History grows by design ([ADR 4](decisions/0004-history-is-never-rewritten.md)). Above 70% of the cap, Backup, Settings and Today's housekeeping line say so (measured when Backup or Settings opens); at the cap, export refuses with an explanation and changes nothing.
 - **Unreadable saved data leaves the app on Retry.** A load that fails overwrites nothing, but restore and Reset are out of reach until the data reads again.
 - **Upgrades are one-way.** Once a newer build opens the data, an older build refuses it ([ADR 5](decisions/0005-stepwise-versioned-formats.md)).
 - **Each save serializes every row.** Unchanged rows are not written, and unchanged days and trading sessions are not validated again, but each save still turns every row into JSON to compare it with the last saved copy and validates every other record, so the CPU cost of a save grows with history. It has not been measured on a phone.
