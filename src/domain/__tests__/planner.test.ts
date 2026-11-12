@@ -612,9 +612,11 @@ describe('the block editor saves over what was recorded while it was open', () =
   test('the overlap check reads the stored status: a block skipped meanwhile holds no slot', () => {
     let day: Day = { ...start(), blocks: [copy(opened), makeBlock('other', 'Other', 900, 60)] };
     day = setStatus(day, 'other', 'skipped', '2026-11-09T08:00:00.000Z');
-    const staleOther = makeBlock('other', 'Other moved', 930, 30);
+    // The stale copy is still planned and lands on the opened block's slot (600–630). Read from
+    // the stored block, it is skipped and holds no slot, so the move is allowed and stays skipped.
+    const staleOther = makeBlock('other', 'Other moved', 610, 30);
     expect(editBlock(day, staleOther, settings).blocks[1]).toMatchObject({
-      start: 930,
+      start: 610,
       status: 'skipped',
     });
   });
