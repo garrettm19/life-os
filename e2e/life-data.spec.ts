@@ -341,6 +341,8 @@ test('switching lb and kg converts the typed weight, and saving keeps what is sh
   const lb = page.getByRole('radio', { name: 'lb', exact: true });
   await kg.click();
   await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // The number it was converted from shows under the field, so a switch never looks like an edit.
+  await expect(page.getByText('180 lb = 81.6 kg', { exact: true })).toBeVisible();
   // Back and forth never drifts: each switch converts from the number as typed.
   await lb.click();
   await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('180');
@@ -358,6 +360,15 @@ test('switching lb and kg converts the typed weight, and saving keeps what is sh
   await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('179.9');
   await kg.click();
   await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // Only looking at it in lb and saving keeps the weight exactly as entered: no rounding moves it.
+  await lb.click();
+  await expect(page.getByText('81.6 kg = 179.9 lb', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save correction', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Open Weekly weigh-in/ })).toBeVisible();
+  expect((await saved(page)).measurements).toEqual([
+    expect.objectContaining({ grams: toGrams(81.6, 'kg'), entered: { value: 81.6, unit: 'kg' } }),
+  ]);
+  await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
   // A blank field is left blank.
   await page.getByLabel('Weight in kg', { exact: true }).fill('');
   await lb.click();

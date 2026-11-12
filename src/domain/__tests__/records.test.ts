@@ -83,6 +83,21 @@ describe('weekly body weight', () => {
     expect(convertWeight(convertWeight(180, 'lb', 'kg'), 'kg', 'lb')).toBe(179.9);
   });
 
+  it('keeps a valid weight at either end of the range valid in the other unit', () => {
+    for (const [value, unit, other] of [
+      [20, 'lb', 'kg'],
+      [700, 'lb', 'kg'],
+      [9.1, 'kg', 'lb'],
+      [317.5, 'kg', 'lb'],
+    ] as const) {
+      const shown = convertWeight(parseWeight(String(value), unit), unit, other);
+      expect(parseWeight(String(shown), other)).toBe(shown);
+    }
+    // Just outside the range in kg is refused, as it would be in lb.
+    expect(() => parseWeight('9', 'kg')).toThrow('between 9.1 and 317.5 kg');
+    expect(() => parseWeight('318', 'kg')).toThrow('between 9.1 and 317.5 kg');
+  });
+
   it('rejects invalid input with a clear message', () => {
     for (const bad of ['', 'abc', '-180', '1804', '180.456', '18'])
       expect(() => parseWeight(bad, 'lb')).toThrow();
@@ -93,7 +108,7 @@ describe('weekly body weight', () => {
   it('says a well-formed weight out of range is out of range, however many digits it has', () => {
     expect(() => parseWeight('99999', 'lb')).toThrow('Enter a weight between 20 and 700 lb.');
     expect(() => parseWeight('1000', 'lb')).toThrow('Enter a weight between 20 and 700 lb.');
-    expect(() => parseWeight('1000', 'kg')).toThrow('Enter a weight between 9 and 318 kg.');
+    expect(() => parseWeight('1000', 'kg')).toThrow('Enter a weight between 9.1 and 317.5 kg.');
     expect(() => parseWeight('1804', 'lb')).toThrow('between 20 and 700 lb');
     // A malformed one still gets the format message.
     expect(() => parseWeight('180.456', 'lb')).toThrow('Use a number like 180.4');

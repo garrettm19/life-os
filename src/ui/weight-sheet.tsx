@@ -76,7 +76,11 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
   const switchUnit = (next: WeightUnit) => {
     if (next === unit) return;
     setUnit(next);
-    if (origin === 'saved' && existing) return setValue(String(weightIn(existing, next)));
+    if (origin === 'saved' && existing) {
+      setValue(String(weightIn(existing, next)));
+      setError(null);
+      return;
+    }
     let from = origin === 'saved' ? null : origin;
     if (!from) {
       try {
@@ -90,6 +94,10 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
     setValue(String(convertWeight(from.value, from.unit, next)));
     setError(null);
   };
+  // The number the field was converted from, shown under it so a switch never looks like an edit.
+  const from = origin === 'saved' ? (existing?.entered ?? null) : origin;
+  const converted =
+    from && from.unit !== unit ? `${from.value} ${from.unit} = ${value} ${unit}` : null;
   const [fasted, setFasted] = useState(existing?.fasted ?? null);
   const [note, setNote] = useState(existing?.note ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +106,10 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
   const planned = target.occurrence?.block.status === 'planned';
   const save = async () => {
     try {
-      const parsed = parseWeight(value, unit);
+      // A saved weight whose number was not edited (only its unit shown in the other one) keeps the
+      // weight exactly as first entered, so looking at it in lb or kg never moves it by a rounding.
+      const kept = origin === 'saved' && existing ? existing.entered : null;
+      const parsed = kept ? kept.value : parseWeight(value, unit);
       const now = new Date().toISOString();
       const occurrence = target.occurrence
         ? { date: target.occurrence.date, blockId: target.occurrence.block.id }
@@ -109,7 +120,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           {
             id: s.measurements.some((m) => m.id === id) ? id : undefined,
             value: parsed,
-            unit,
+            unit: kept ? kept.unit : unit,
             date,
             fasted,
             note,
@@ -174,6 +185,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           ))}
         </View>
       </View>
+      {converted && <Text style={type.caption}>{converted}</Text>}
       <View style={styles.row}>
         <Chip
           role="checkbox"

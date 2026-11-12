@@ -23,6 +23,16 @@ function change(to: number, from: number): number {
   return (Math.sign(hundredths) * Math.round(Math.abs(hundredths) / 10)) / 10;
 }
 
+/**
+ * The weight a person can type, 20–700 lb. The kg bounds are those two converted (9.1–317.5 kg), so
+ * a valid weight switched to the other unit is still valid there. Saved data is checked against the
+ * slightly wider 9–318 kg (`validateMeasurements`), so a weight saved before stays readable.
+ */
+const WEIGHT_RANGE: Record<WeightUnit, [number, number]> = {
+  lb: [20, 700],
+  kg: [fromGrams(toGrams(20, 'lb'), 'kg'), fromGrams(toGrams(700, 'lb'), 'kg')],
+};
+
 /** Parses typed weight ("180.4", "180,4") or explains what is wrong. */
 export function parseWeight(text: string, unit: WeightUnit): number {
   const cleaned = text.trim().replace(',', '.');
@@ -31,7 +41,7 @@ export function parseWeight(text: string, unit: WeightUnit): number {
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned))
     throw new Error('Use a number like 180.4, with at most two decimals.');
   const value = Number(cleaned);
-  const [min, max] = unit === 'lb' ? [20, 700] : [9, 318];
+  const [min, max] = WEIGHT_RANGE[unit];
   if (value < min || value > max)
     throw new Error(`Enter a weight between ${min} and ${max} ${unit}.`);
   return value;

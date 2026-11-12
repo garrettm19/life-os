@@ -11,7 +11,8 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 ### Fixed
 
 - Editing a block no longer undoes a Done recorded while the editor was open.
-- Switching a weight between lb and kg converts the number in the field, so 180 lb is never saved as 180 kg. Switching back shows the number as typed.
+- Switching a weight between lb and kg converts the number in the field, so 180 lb is never saved as 180 kg. Switching back shows the number as typed, a line under the field shows what it was converted from, and a saved weight only viewed in the other unit is saved unchanged.
+- A weight at either end of the range stays valid when switched to the other unit: kg entries now run 9.1–317.5, the same 20–700 lb range.
 - Editing a program, routine or goal inside the demo keeps the DEMO tag and Start tracking, so the demo's fictional history is never labeled as yours. Start tracking keeps the edits.
 - Deleting a money review that completed its objective asks whether to undo that Done too, so a review never leaves behind a Done it no longer backs.
 
