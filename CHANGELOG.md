@@ -14,6 +14,9 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - The Day Clear streak tile on Progress shows the run and the best run, without a "−2 vs 4 weeks ago" change. Over a year, a tile with nothing recorded a year before shows its figure alone.
 - A study week with every day kept reads "all 5 study days kept", on either side of a comparison ("down from all 5"). Up or down is said only when the days kept moved the same way as their share, as the bars show it; otherwise both weeks are given ("Last week all 5 study days kept; 5 of 6 the week before").
 - Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side. Every "since" in that card gives the date the same way, without the weekday.
+- Time fields take the time as you would say it: 7:30 AM, 7pm or 19:30. A line under the field says how it was read ("Reads as 7:00 PM"), so a wrong AM or PM shows before Save, and editing prefills the 12-hour form. Bare digits such as 730 are refused because they read two ways. For a bedtime or a latest finish, 12 AM means midnight at the end of the day. Trading time fields are unchanged.
+- A workout card shows one load: once there is an earlier session the header gives the sets and reps, and the Last line and the prefilled sets give the load. A load of 0 reads Bodyweight.
+- Settings: the widget card says what its switch does in one line, with the details in About widgets, and once a plan exists the setup import keeps Choose setup file in view and puts the paste box behind Paste instead.
 - One name per concept: Week says Not recorded for a day never opened, as Today and the streak details do; the streak details are titled Day Clear streak; with no run going they say "Clear a day to start a new run" instead of "New run started"; and the best run under Best reads "21 days".
 
 ### Fixed

@@ -102,6 +102,7 @@ Checklist for a release candidate, in light and dark:
 15. A past day left open, in light and dark: its "Not cleared" line is grey on the quiet fill, never orange, and reads clearly; in the streak details Not cleared is faint beside a green Cleared.
 16. A rest day with a long next workout ("Chest / Triceps / Shoulders B") at the default and the largest Dynamic Type sizes: the line reads whole, Train anyway sits beside it or under it and is never clipped; the first Done on a fresh day shows the goal chip without moving the list.
 17. Progress at the largest Dynamic Type sizes: a tile's "This week so far · 2" caption wraps as "This week / so far · 2", never leaving "· 2" alone; VoiceOver reads it after the tile's figure.
+18. Time fields (a block's Start time, Up by, I was up at, Study time): the keyboard reaches AM and PM with one tap to letters, "Reads as 7:00 PM" appears under the field as you type and wraps whole at the largest Dynamic Type sizes, and VoiceOver reads it after the field.
 
 ## Known limitations
 
