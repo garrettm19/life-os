@@ -100,6 +100,8 @@ Checklist for a release candidate, in light and dark:
 13. With a block's editor open, tick it Done on the large widget, return to the app and save an edit: the block stays Done with its time.
 14. Deleting a log entry, weight, money review, skill checkpoint or weekly review shows the confirm card fully on screen; VoiceOver moves to its line and reads it, Keep it returns VoiceOver to Delete, and at the largest Dynamic Type sizes every choice is reachable.
 15. A past day left open, in light and dark: its "Not cleared" line is grey on the quiet fill, never orange, and reads clearly; in the streak details Not cleared is faint beside a green Cleared.
+16. A rest day with a long next workout ("Chest / Triceps / Shoulders B") at the default and the largest Dynamic Type sizes: the line reads whole, Train anyway sits beside it or under it and is never clipped; the first Done on a fresh day shows the goal chip without moving the list.
+17. Progress at the largest Dynamic Type sizes: a tile's "This week so far · 2" caption wraps as "This week / so far · 2", never leaving "· 2" alone; VoiceOver reads it after the tile's figure.
 
 ## Known limitations
 

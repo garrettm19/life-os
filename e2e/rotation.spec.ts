@@ -116,6 +116,37 @@ test('a rotation places one workout a day with its companion, rests without adva
   expect((await train.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
+test('a long next workout on a narrow phone puts Train anyway under the line, never beside a column', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const long = 'Chest / Triceps / Shoulders B';
+  const state = rotating();
+  const named: State = {
+    ...state,
+    programs: state.programs.map((p) => ({
+      ...p,
+      routines: p.routines.map((r) => (r.id === 'upper' ? { ...r, title: long } : r)),
+    })),
+  };
+  // Sunday rests the rotation; Upper body, renamed, is next.
+  await seed(page, named, { clock: at(15), route: '/' });
+  const line = page.getByTestId('rest-day');
+  const text = line.getByText(`Rest day · next up: ${long}`, { exact: true });
+  await expect(text).toBeVisible();
+  const train = page.getByRole('button', { name: 'Train Training today instead of resting' });
+  const [row, words, button] = await Promise.all(
+    [line, text, train].map(async (el) => (await el.boundingBox())!),
+  );
+  // The line keeps the row's width (at most two lines), and the button sits under it, whole.
+  const lineHeight = 19;
+  expect(words.height).toBeLessThanOrEqual(lineHeight * 2 + 2);
+  expect(button.y).toBeGreaterThanOrEqual(words.y + words.height - 1);
+  expect(button.height).toBeGreaterThanOrEqual(44);
+  expect(button.x + button.width).toBeLessThanOrEqual(row.x + row.width + 1);
+  expect(row.x + row.width).toBeLessThanOrEqual(320);
+});
+
 test('a cleared rest day offers no more training above the fold; Train anyway waits in More', async ({
   page,
 }) => {

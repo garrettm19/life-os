@@ -279,6 +279,8 @@ describe('a past day reads quieter than a win', () => {
             { date: '2026-11-07', outcome: 'protected', protection: { reason: 'travel', at: '' } },
             { date: '2026-11-08', outcome: 'open' },
             { date: MON, outcome: 'cleared' },
+            { date: '2026-11-10', outcome: 'open', held: 'today' },
+            { date: '2026-11-11', outcome: 'open', held: 'upcoming' },
           ],
           onProtect: () => {},
           onClearProtection: () => {},
@@ -301,5 +303,11 @@ describe('a past day reads quieter than a win', () => {
     expect(words).toContain('1-day streak');
     expect(style('Cleared')).toMatchObject({ color: palette.done });
     expect(style('Cleared').fontWeight).not.toBe(fonts.regular.fontWeight);
+    // Today, still in progress, is no fact yet: it keeps primary text, not a past miss's faintness.
+    expect(style('In progress').color).toBe(palette.label);
+    expect(style('Upcoming')).toMatchObject({
+      color: palette.label3,
+      fontWeight: fonts.regular.fontWeight,
+    });
   });
 });

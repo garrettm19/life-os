@@ -149,8 +149,10 @@ export function DayProgressBody({
           accessibilityRole="header"
           accessibilityLabel={progressLabel(progress, isToday, !notPast)}
           style={{ gap: 10 }}>
-          {/* One line, the count and the goal as a small chip, over a thin bar. */}
-          <View style={[styles.spread, { rowGap: 6 }]}>
+          {/* One line, the count and the goal as a small chip, over a thin bar. The line is at
+              least the chip's height (19 + 2 × 5), so the chip that appears with the first Done
+              never pushes the list down under the finger. */}
+          <View style={[styles.spread, { rowGap: 6, minHeight: 29 }]}>
             <Count compact done={progress.done} total={progress.total} />
             {line && <GoalChip text={line.text} tone={line.tone} />}
           </View>
@@ -303,15 +305,18 @@ export function StreakSheetBody({
               accessibilityLabel={`${displayDate(entry.date)}: ${outcomeLabel(entry)}`}
               style={[styles.spread, { minHeight: 32 }]}>
               <Text style={{ ...type.meta, color: palette.label2 }}>{displayDate(entry.date)}</Text>
-              {/* A win in Fern and a held day in Ember, as on the chain; anything else a quiet
-                  fact at regular weight, never louder than Cleared. */}
+              {/* A win in Fern and a held day in Ember, as on the chain, and today in progress in
+                  primary text; anything else a quiet fact at regular weight, never louder than
+                  Cleared. */}
               <Text
                 style={
                   entry.outcome === 'cleared'
                     ? { ...type.meta, color: palette.done }
                     : entry.outcome === 'protected'
                       ? { ...type.meta, color: palette.accent }
-                      : { ...type.meta, ...fonts.regular, color: palette.label3 }
+                      : entry.held === 'today'
+                        ? { ...type.meta, color: palette.label }
+                        : { ...type.meta, ...fonts.regular, color: palette.label3 }
                 }>
                 {outcomeLabel(entry)}
               </Text>

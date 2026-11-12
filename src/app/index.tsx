@@ -444,12 +444,14 @@ export default function TodayScreen() {
     const title = p.routines.find((r) => r.id === nextWorkout(state, p, date))?.title;
     return `${resting.length > 1 ? `${p.title} · rest day` : 'Rest day'}${title ? ` · next up: ${title}` : ''}`;
   };
-  // Training on a rest day after all: the program's next workout joins the day.
-  const trainAnyway = (p: Program) =>
+  // Training on a rest day after all: the program's next workout joins the day. In the fold it
+  // is as quiet as the actions beside it.
+  const trainAnyway = (p: Program, quiet = false) =>
     nextWorkout(state, p, date) ? (
       <Button
         key={p.id}
-        secondary
+        secondary={!quiet}
+        quiet={quiet}
         small
         title={resting.length > 1 ? `Train ${p.title} anyway` : 'Train anyway'}
         label={`Train ${p.title} ${date === today ? 'today' : 'this day'} instead of resting`}
@@ -813,13 +815,20 @@ export default function TodayScreen() {
       <RestoreSheet restore={restore} />
       {/* A rest day is part of today's plan: one line says why no workout is listed and what is
           next, so the list still starts near the top. Once the day is cleared, Train anyway waits
-          in the fold, so a finished day offers no more work above it. */}
+          in the fold, so a finished day offers no more work above it. A line too long to share
+          its row wraps the button under it, never into a narrow column beside it. */}
       {resting.map((p) => (
         <View
           key={p.id}
           testID="rest-day"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Text style={[type.caption, { flex: 1, minWidth: 0 }]}>{restDayLine(p)}</Text>
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            columnGap: 12,
+            rowGap: 6,
+          }}>
+          <Text style={[type.caption, { flexGrow: 1, flexShrink: 1 }]}>{restDayLine(p)}</Text>
           {!progress.cleared && trainAnyway(p)}
         </View>
       ))}
@@ -1008,7 +1017,7 @@ export default function TodayScreen() {
                 />
               )}
               {/* On a cleared rest day, training anyway is still one tap, here. */}
-              {progress.cleared && resting.map(trainAnyway)}
+              {progress.cleared && resting.map((p) => trainAnyway(p, true))}
               {/* Generating or replanning a past day would rewrite recorded history. */}
               {date >= today && (
                 <>
