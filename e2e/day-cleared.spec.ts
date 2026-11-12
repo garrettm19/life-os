@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { displayDate } from '../src/domain/model';
 import { nextMonday } from './support/dates';
 import { importSetup } from './support/files';
 import { failSaves, restoreSaves, SAVE_FAILED_TEXT, savedText } from './support/storage';
@@ -105,9 +104,9 @@ test('opening Today creates due checklist items without generating timed work', 
   await openMore(page);
   await expect(page.getByText('No streak yet', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Streak details/ }).click();
-  // The test date is ahead of the real clock, so the blocked day is held as Upcoming.
-  await expect(page.getByLabel(`${displayDate(date)}: Upcoming`, { exact: true })).toBeVisible();
-  await expect(page.getByText('Cleared', { exact: true })).toHaveCount(0);
+  // The month shows no cleared day: a blocked day is never counted.
+  await expect(page.getByTestId('month-calendar')).toBeVisible();
+  await expect(page.getByRole('button', { name: /, cleared$/ })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText(/is due and not on the list yet/)).toBeVisible();
   await openMore(page);

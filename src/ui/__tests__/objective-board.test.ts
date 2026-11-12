@@ -4,11 +4,13 @@ import { createElement } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { trainingState } from '../../test-support/fixtures';
-import { dayOutcome, dayProgress } from '../../domain/objectives';
+import { dayOutcome, dayProgress, protectDay } from '../../domain/objectives';
+import { ensureChecklistDay, setStatus } from '../../domain/planner';
 import { needsEnsure } from '../../domain/rotation';
+import { MonthCalendar } from '../dot-calendar';
 import { Count } from '../mission';
 import { ObjectiveBoard, StreakSheetBody, streakDetailsLabel } from '../objective-board';
-import { fonts, palette } from '../theme';
+import { palette } from '../theme';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
@@ -269,45 +271,67 @@ describe('a past day reads quieter than a win', () => {
     expect(StyleSheet.flatten(line.props.style).color).toBe(palette.label2);
   });
 
-  it('lists Not cleared in the streak details faint and regular, and Cleared in Fern', () => {
+  it('shows the run once in the streak details, and the next step only when no run is going', () => {
+    const words = (current: number) => {
+      let tree: ReactTestRenderer | null = null;
+      act(() => {
+        tree = create(
+          createElement(StreakSheetBody, {
+            streak: { current, best: 3 },
+            calendar: null,
+            onProtect: () => {},
+            onClearProtection: () => {},
+          }),
+        );
+      });
+      return tree!.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
+    };
+    expect(words(1)).not.toContain('3 days');
+    expect(words(1).join(' | ')).not.toMatch(/\d-day streak|New run started/);
+    expect(words(0)).toContain('Clear a day to start a new run');
+  });
+
+  it('draws the month by the one rule: a seal, a ring, a faint dot, blanks, and no red', () => {
+    const base = trainingState();
+    const at = new Date(2026, 10, 12, 9).toISOString();
+    const open = (date: string) =>
+      ensureChecklistDay(date, base.settings, base.programs, undefined, at);
+    const done = (date: string) =>
+      open(date).blocks.reduce((d, b) => setStatus(d, b.id, 'done', at), open(date));
+    const state = {
+      ...base,
+      days: {
+        '2026-11-09': done('2026-11-09'),
+        '2026-11-10': protectDay(open('2026-11-10'), 'travel', at),
+        '2026-11-04': open('2026-11-04'),
+        '2026-11-11': open('2026-11-11'),
+      },
+    };
     let tree: ReactTestRenderer | null = null;
     act(() => {
       tree = create(
-        createElement(StreakSheetBody, {
-          streak: { current: 1, best: 3 },
-          history: [
-            { date: '2026-11-07', outcome: 'protected', protection: { reason: 'travel', at: '' } },
-            { date: '2026-11-08', outcome: 'open' },
-            { date: MON, outcome: 'cleared' },
-            { date: '2026-11-10', outcome: 'open', held: 'today' },
-            { date: '2026-11-11', outcome: 'open', held: 'upcoming' },
-          ],
-          onProtect: () => {},
-          onClearProtection: () => {},
-        }),
+        createElement(MonthCalendar, { state, today: '2026-11-11', onOpenDay: () => {} }),
       );
     });
-    const style = (words: string) =>
-      StyleSheet.flatten(
-        tree!.root.findAllByType(Text).find((t) => t.props.children === words)!.props.style,
-      );
-    expect(style('Not cleared')).toMatchObject({
-      color: palette.label3,
-      fontWeight: fonts.regular.fontWeight,
-    });
-    // Under the Best label, its caption is the run alone, and Current names how to start a run
-    // only when none is going.
-    const words = tree!.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
-    expect(words).toContain('3 days');
-    expect(words.join(' | ')).not.toMatch(/Best ·|New run started/);
-    expect(words).toContain('1-day streak');
-    expect(style('Cleared')).toMatchObject({ color: palette.done });
-    expect(style('Cleared').fontWeight).not.toBe(fonts.regular.fontWeight);
-    // Today, still in progress, is no fact yet: it keeps primary text, not a past miss's faintness.
-    expect(style('In progress').color).toBe(palette.label);
-    expect(style('Upcoming')).toMatchObject({
-      color: palette.label3,
-      fontWeight: fonts.regular.fontWeight,
-    });
+    const cells = tree!.root.findAll(
+      (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('month-day:'),
+    );
+    // Every day of November, each with one label, read with dayOutcome.
+    const labels = new Set(cells.map((c) => c.props.accessibilityLabel));
+    expect(labels.size).toBe(30);
+    expect(labels).toContain('November 9, cleared');
+    expect(labels).toContain('November 10, protected');
+    expect(labels).toContain('November 4, not cleared');
+    expect(labels).toContain('November 11, today, in progress');
+    expect(labels).toContain('November 8, not recorded');
+    expect(labels).toContain('November 30, still to come');
+    expect(dayOutcome(state, '2026-11-09')).toBe('cleared');
+    const colors = tree!.root
+      .findAll((n) => !!n.props.style)
+      .map((n) => StyleSheet.flatten(n.props.style))
+      .flatMap((st) => [st.color, st.borderColor, st.backgroundColor]);
+    expect(colors).not.toContain(palette.danger);
+    const line = tree!.root.findAllByType(Text).map((t) => t.props.accessibilityLabel);
+    expect(line).toContain('1 day cleared in November');
   });
 });

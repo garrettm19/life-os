@@ -1,15 +1,15 @@
+import { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import {
   DayOutcome,
   DayProgress,
   PROTECTION_REASONS,
-  StreakDay,
-  outcomeLabel,
   protectionLabel,
   streakCaption,
 } from '../domain/objectives';
-import { DayProtection, ProtectionReason, displayDate } from '../domain/model';
+import { DayProtection, ProtectionReason } from '../domain/model';
 import { Button, styles } from './components';
+import { Disclosure } from './controls';
 import { ClearedFrame, ClearedTitle, Count, Segments } from './mission';
 import { PressableScale } from './motion';
 import { Callout, callout, progressLabel, segmentStates } from './segments';
@@ -263,13 +263,14 @@ function Cleared({
 export function StreakSheetBody({
   streak,
   protection,
-  history,
+  calendar,
   onProtect,
   onClearProtection,
 }: {
   streak: { current: number; best: number };
   protection?: DayProtection;
-  history: StreakDay[];
+  /** The month of days (`MonthCalendar`), or nothing while the sheet is closed. */
+  calendar: ReactNode;
   onProtect: (reason: ProtectionReason) => void;
   onClearProtection: () => void;
 }) {
@@ -281,49 +282,25 @@ export function StreakSheetBody({
           <Text style={{ ...type.count, color: streak.current > 0 ? palette.done : palette.label }}>
             {streak.current}
           </Text>
-          <Text style={styles.muted}>{streakCaption(streak.current, streak.best)}</Text>
+          {/* Only the next step when no run is going: the figure already says the run. */}
+          {streak.current === 0 && (
+            <Text style={styles.muted}>{streakCaption(streak.current, streak.best)}</Text>
+          )}
         </View>
         <View style={{ width: 1, backgroundColor: palette.separator }} />
         <View style={{ flex: 1, padding: 16, gap: 4 }}>
           <Text style={styles.label}>Best</Text>
           <Text style={type.count}>{streak.best}</Text>
-          <Text style={styles.muted}>{days(streak.best)}</Text>
         </View>
       </View>
-      <Text style={styles.muted}>
-        Not recorded means the day was never opened. It stays out of history and does not break or
-        advance the streak. Protected is an explicit excuse: the streak is held and nothing is
-        marked done.
-      </Text>
-      {history.length > 0 && (
-        <View style={{ gap: 2 }}>
-          <Text style={[styles.label, { paddingBottom: 6 }]}>Recent days</Text>
-          {history.map((entry) => (
-            <View
-              key={entry.date}
-              accessible
-              accessibilityLabel={`${displayDate(entry.date)}: ${outcomeLabel(entry)}`}
-              style={[styles.spread, { minHeight: 32 }]}>
-              <Text style={{ ...type.meta, color: palette.label2 }}>{displayDate(entry.date)}</Text>
-              {/* A win in Fern and a held day in Ember, as on the chain, and today in progress in
-                  primary text; anything else a quiet fact at regular weight, never louder than
-                  Cleared. */}
-              <Text
-                style={
-                  entry.outcome === 'cleared'
-                    ? { ...type.meta, color: palette.done }
-                    : entry.outcome === 'protected'
-                      ? { ...type.meta, color: palette.accent }
-                      : entry.held === 'today'
-                        ? { ...type.meta, color: palette.label }
-                        : { ...type.meta, ...fonts.regular, color: palette.label3 }
-                }>
-                {outcomeLabel(entry)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {calendar}
+      <Disclosure title="About streaks">
+        <Text style={styles.muted}>
+          A day counts when every required objective is done or skipped, with at least one done. Not
+          recorded means the day was never opened: it neither breaks nor advances the streak.
+          Protected is an explicit excuse: the streak is held and nothing is marked done.
+        </Text>
+      </Disclosure>
       {protection ? (
         <>
           <Text style={styles.body}>

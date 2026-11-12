@@ -32,7 +32,6 @@ import {
   dayOutcome,
   dayProgress,
   protectDay,
-  streakHistory,
   yesterdayOpen,
 } from '../domain/objectives';
 import { editBlock, generateDay, makeBlock, replanDay, setStatus } from '../domain/planner';
@@ -48,6 +47,7 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { MonthCalendar } from '../ui/dot-calendar';
 import { FinishYesterday, dismissFinish, finishDismissed } from '../ui/finish-yesterday';
 import { MorningCaption, morningTrail } from '../ui/morning-trail';
 import { PressableScale } from '../ui/motion';
@@ -1147,7 +1147,18 @@ export default function TodayScreen() {
           streak={streak}
           protection={day.protection}
           // Only while the sheet is open: a closed sheet renders nothing.
-          history={streakOpen ? streakHistory(state, date, today) : []}
+          calendar={
+            streakOpen ? (
+              <MonthCalendar
+                state={state}
+                today={today}
+                onOpenDay={(d) => {
+                  setStreakOpen(false);
+                  setDate(d);
+                }}
+              />
+            ) : null
+          }
           onProtect={(reason) =>
             void change((s) =>
               withDay(s, protectDay(s.days[date] ?? { date, blocks: [], revisions: [] }, reason)),
