@@ -33,6 +33,7 @@ import {
   dayProgress,
   protectDay,
   streakHistory,
+  yesterdayOpen,
 } from '../domain/objectives';
 import { editBlock, generateDay, makeBlock, replanDay, setStatus } from '../domain/planner';
 import { Button, Field, Page, SectionLabel, Sheet, TimeField, styles } from '../ui/components';
@@ -47,6 +48,7 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { FinishYesterday, dismissFinish, finishDismissed } from '../ui/finish-yesterday';
 import { MorningCaption, morningTrail } from '../ui/morning-trail';
 import { PressableScale } from '../ui/motion';
 import { DayNav, PinnedProgress } from '../ui/today-top';
@@ -160,7 +162,9 @@ export default function TodayScreen() {
     // Once the board has scrolled away, a thin bar under the header keeps the day's progress.
     [boardAway, setBoardAway] = useState(false),
     // The date whose first save failed, so Today stops waiting for it.
-    [unsaved, setUnsaved] = useState<string | null>(null);
+    [unsaved, setUnsaved] = useState<string | null>(null),
+    // Re-renders Today when the Finish yesterday line is closed (the closed dates live in memory).
+    [, setFinishHidden] = useState<string | null>(null);
   let base = localDate(now);
   if (params.date) {
     try {
@@ -332,6 +336,7 @@ export default function TodayScreen() {
   const studyBlocks = day.blocks.filter((b) => studyPlanFor(state, b.routineId));
   // A session started yesterday and still open (it crossed midnight) stays reachable from today.
   const yesterday = shiftDate(today, -1);
+  const finish = useMemo(() => yesterdayOpen(state, today), [state, today]);
   const carried =
     date === today
       ? (state.days[yesterday]?.blocks ?? []).filter(
@@ -537,7 +542,8 @@ export default function TodayScreen() {
       <MorningCaption text={text} trail={morningTrail(state, anchor, today)} />
     ) : undefined;
   const morningDetails = (block: Block) =>
-    isAnchor(block) && isToday && block.status === 'done'
+    // Yesterday too, opened to finish it: a tick after midnight would otherwise read as late.
+    isAnchor(block) && (isToday || date === yesterday) && block.status === 'done'
       ? { what: 'details', body: <MorningCorrection block={block} date={date} /> }
       : undefined;
   // The caption: a timed objective's time first, then its status, and a quiet Optional last.
@@ -737,6 +743,25 @@ export default function TodayScreen() {
             )}
           </View>
         )}
+      {ready && isToday && finish && !finishDismissed(finish.date) && (
+        <FinishYesterday
+          remaining={finish.remaining}
+          onOpen={() => setDate(finish.date)}
+          onDismiss={() => {
+            dismissFinish(finish.date);
+            setFinishHidden(finish.date);
+          }}
+        />
+      )}
+      {ready && date === yesterday && (
+        <View style={{ alignItems: 'flex-start' }}>
+          <LinkButton
+            title="‹ Back to Today"
+            label="Back to Today"
+            onPress={() => setDate(today)}
+          />
+        </View>
+      )}
       {party && (
         <Celebration
           progress={progress}

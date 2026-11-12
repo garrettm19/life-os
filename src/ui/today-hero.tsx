@@ -72,11 +72,12 @@ export function heroLead(
     unit: '',
     best,
     atBest: false,
+    // A next step, never "missed": the best run already sits beside the headline.
     note:
       recent > 0
         ? `${recent} cleared in the last 7 days`
         : best
-          ? null
+          ? 'Clear today to start a new run'
           : 'Clear today to start a run',
   };
 }

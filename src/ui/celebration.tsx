@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { DayProgress } from '../domain/objectives';
-import { Moment, WeekDayMark } from '../domain/moments';
+import { Moment, WeekDayMark, growthCaption } from '../domain/moments';
 import { Button } from './components';
 import { feelCleared } from './feel';
 import { FullScreen } from './full-screen';
@@ -229,13 +229,7 @@ export function Celebration({
     reduced ? undefined : FadeInDown.delay(delay).duration(motion.reveal).easing(motion.ease);
   const best = Math.max(streak.after, streak.bestBefore);
   const newBest = streak.after > streak.bestBefore && streak.bestBefore > 0;
-  // What the figure grew from, said once: never a count from zero.
-  const growth =
-    streak.before > 0
-      ? `Up from ${streak.before}`
-      : streak.after === 1
-        ? 'A new run starts today'
-        : null;
+  const growth = growthCaption(streak);
   const wash = useWash(
     (c) => `radial-gradient(circle at 50% 18%, ${c.washMint} 0%, ${c.canvas} 60%)`,
     'canvas',

@@ -15,6 +15,7 @@ import {
   streakMoment,
   streakStep,
   weekMarks,
+  growthCaption,
 } from '../moments';
 import { dayClearStreak, dayOutcome, protectDay } from '../objectives';
 import { toGrams } from '../records';
@@ -386,5 +387,15 @@ describe('the long view headline', () => {
     expect(weekHeadline(weeks(span('2026-11-02', 7, () => false)), TODAY)).toBeNull();
     expect(weekHeadline(weeks(span('2026-11-09', 1, () => true)), TODAY)).toBeNull();
     expect(weekHeadline({ ...demo, days: {} }, TODAY)).toBeNull();
+  });
+});
+
+describe('what the Day Cleared figure grew from', () => {
+  it('says the run it grew from, a first run, or back on track after a run ended', () => {
+    expect(growthCaption({ before: 4, after: 5, bestBefore: 9 })).toBe('Up from 4');
+    expect(growthCaption({ before: 0, after: 1, bestBefore: 0 })).toBe('A new run starts today');
+    expect(growthCaption({ before: 0, after: 1, bestBefore: 6 })).toBe('Back on track');
+    // A finished yesterday can join today to an earlier run: no caption beats a wrong one.
+    expect(growthCaption({ before: 0, after: 3, bestBefore: 6 })).toBeNull();
   });
 });

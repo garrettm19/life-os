@@ -162,6 +162,16 @@ export function streakStep(state: State, date: string, today: string) {
   };
 }
 
+/**
+ * What the Day Cleared figure grew from, said once and never as a count from zero: "Up from 4", or
+ * for the first clear after a run ended, "Back on track" (the best run is already beside it).
+ */
+export function growthCaption(step: { before: number; after: number; bestBefore: number }) {
+  if (step.before > 0) return `Up from ${step.before}`;
+  if (step.after !== 1) return null;
+  return step.bestBefore > 0 ? 'Back on track' : 'A new run starts today';
+}
+
 export type WeekDayMark = {
   date: string;
   /** One letter for the weekday: M, T, W… */

@@ -1,4 +1,4 @@
-import { expect, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { decodeState, parseSetup } from '../data';
 import { Day, Program, emptyState } from '../model';
 import {
@@ -10,7 +10,10 @@ import {
   protectDay,
   streakCaption,
   streakHistory,
+  calendarMonths,
+  monthOutcomes,
   undoEffect,
+  yesterdayOpen,
 } from '../objectives';
 import { encodeBackup, parseBackup } from '../backup';
 import {
@@ -797,4 +800,89 @@ test('undoing a Done says which day it sits on and whether that day stops counti
   // An occurrence that is not Done anywhere has nothing to undo.
   expect(undoEffect(state, 'unknown', tuesday)).toBeNull();
   expect(undoEffect(open, other.id, tuesday)).toBeNull();
+});
+
+describe('finish yesterday', () => {
+  const programs = [daily()];
+  const open = ensureChecklistDay(monday, settings, programs, undefined, now);
+  const oneDone = setStatus(open, open.blocks[0].id, 'done', now);
+  const state = (days: Record<string, Day>, source: 'personal' | 'demo' = 'personal') => ({
+    ...emptyState(),
+    source,
+    programs,
+    days,
+  });
+
+  test('offers an open yesterday with what is left on it', () => {
+    expect(yesterdayOpen(state({ [monday]: oneDone }), tuesday)).toEqual({
+      date: monday,
+      remaining: 1,
+    });
+  });
+
+  test('says nothing for a cleared, protected, absent, demo or older day', () => {
+    expect(yesterdayOpen(state({ [monday]: finishChecklists(monday, programs) }), tuesday)).toBe(
+      null,
+    );
+    expect(yesterdayOpen(state({ [monday]: protectDay(oneDone, 'travel', now) }), tuesday)).toBe(
+      null,
+    );
+    expect(yesterdayOpen(state({}), tuesday)).toBeNull();
+    expect(yesterdayOpen(state({ [monday]: oneDone }, 'demo'), tuesday)).toBeNull();
+    // Two days back is history: only yesterday can be finished from Today.
+    expect(yesterdayOpen(state({ [monday]: oneDone }), wednesday)).toBeNull();
+  });
+
+  test('finishing yesterday brings the run back with no other step', () => {
+    const before = {
+      [sunday]: finishChecklists(sunday, programs),
+      [monday]: oneDone,
+    };
+    expect(dayClearStreak(state(before), tuesday, tuesday).current).toBe(0);
+    const finished = { ...before, [monday]: setStatus(oneDone, oneDone.blocks[1].id, 'done', now) };
+    expect(yesterdayOpen(state(finished), tuesday)).toBeNull();
+    expect(dayClearStreak(state(finished), tuesday, tuesday).current).toBe(2);
+  });
+});
+
+describe('month calendar', () => {
+  const programs = [daily()];
+  const open = ensureChecklistDay(monday, settings, programs, undefined, now);
+  const state = {
+    ...emptyState(),
+    source: 'personal' as const,
+    programs,
+    days: {
+      [sunday]: finishChecklists(sunday, programs),
+      [monday]: protectDay(open, 'illness', now),
+      [tuesday]: ensureChecklistDay(tuesday, settings, programs, undefined, now),
+      [wednesday]: ensureChecklistDay(wednesday, settings, programs, undefined, now),
+    },
+  };
+
+  test('reads every day of the month by the one rule, and later days as later', () => {
+    const month = monthOutcomes(state, '2026-11', wednesday);
+    expect(month.days).toHaveLength(30);
+    const at = (date: string) => month.days.find((d) => d.date === date)!;
+    expect(at('2026-11-01').outcome).toBe('absent');
+    expect(at(sunday).outcome).toBe('cleared');
+    expect(at(monday).outcome).toBe('protected');
+    expect(at(tuesday).outcome).toBe('open');
+    expect(at(wednesday)).toEqual({ date: wednesday, outcome: 'open', today: true });
+    expect(at('2026-11-30').outcome).toBe('later');
+    expect(month.cleared).toBe(1);
+    for (const day of month.days)
+      if (day.outcome !== 'later') expect(day.outcome).toBe(dayOutcome(state, day.date));
+  });
+
+  test('runs from the first recorded month to this one, across a year end', () => {
+    expect(calendarMonths(state, wednesday)).toEqual(['2026-11']);
+    expect(calendarMonths(emptyState(), wednesday)).toEqual(['2026-11']);
+    expect(calendarMonths(state, '2027-02-03')).toEqual([
+      '2026-11',
+      '2026-12',
+      '2027-01',
+      '2027-02',
+    ]);
+  });
 });
