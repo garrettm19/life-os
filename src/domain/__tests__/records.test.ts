@@ -4,6 +4,7 @@ import { decodeState, withDay } from '../data';
 import { deleteLog, logFor, saveLog } from '../lifelog';
 import {
   changeSince,
+  convertWeight,
   deleteMeasurement,
   parseWeight,
   recordWeight,
@@ -64,6 +65,22 @@ describe('weekly body weight', () => {
     const m = state.measurements[0];
     expect(weightIn(m, 'lb')).toBe(180.4);
     expect(weightIn(m, 'kg')).toBe(81.8);
+  });
+
+  it('converts a typed weight to the other unit, and back from the number typed without drift', () => {
+    expect(convertWeight(180, 'lb', 'kg')).toBe(81.6);
+    expect(convertWeight(81.8, 'kg', 'lb')).toBe(180.3);
+    expect(convertWeight(180.4, 'lb', 'lb')).toBe(180.4);
+    // Converting from the first typed value each time gives the same numbers on every switch.
+    const shown: number[] = [];
+    let unit: 'lb' | 'kg' = 'lb';
+    for (let i = 0; i < 6; i++) {
+      unit = unit === 'lb' ? 'kg' : 'lb';
+      shown.push(convertWeight(180, 'lb', unit));
+    }
+    expect(shown).toEqual([81.6, 180, 81.6, 180, 81.6, 180]);
+    // Chaining conversions instead would drift: 180 lb → 81.6 kg → 179.9 lb.
+    expect(convertWeight(convertWeight(180, 'lb', 'kg'), 'kg', 'lb')).toBe(179.9);
   });
 
   it('rejects invalid input with a clear message', () => {

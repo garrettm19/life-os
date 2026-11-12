@@ -320,6 +320,43 @@ test('deleting a weight that completed a weigh-in asks what happens to the weigh
   expect(after.days[realToday].blocks.find((b) => b.routineId === 'weigh-in')!.status).toBe('done');
 });
 
+test('switching lb and kg converts the typed weight, and saving keeps what is shown', async ({
+  page,
+}) => {
+  const state = trainingState();
+  for (const routine of state.programs[1].routines)
+    routine.weekdays = [dateObject(realToday).getDay()];
+  await seed(page, state);
+  await page.goto('/?date=' + realToday);
+  await page.getByRole('button', { name: 'Record Weekly weigh-in', exact: true }).click();
+  await page.getByLabel('Weight in lb', { exact: true }).fill('180');
+  const kg = page.getByRole('radio', { name: 'kg', exact: true });
+  const lb = page.getByRole('radio', { name: 'lb', exact: true });
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // Back and forth never drifts: each switch converts from the number as typed.
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('180');
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  await page.getByRole('button', { name: 'Save weight', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Open Weekly weigh-in/ })).toBeVisible();
+  expect((await saved(page)).measurements).toEqual([
+    expect.objectContaining({ grams: toGrams(81.6, 'kg'), entered: { value: 81.6, unit: 'kg' } }),
+  ]);
+  // A saved weight opened for correction converts the same way, and an edited number is kept.
+  await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('179.9');
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // A blank field is left blank.
+  await page.getByLabel('Weight in kg', { exact: true }).fill('');
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('');
+});
+
 test('restoring an older backup warns which records would be removed, and Close changes nothing', async ({
   page,
 }) => {

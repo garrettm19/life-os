@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { withDay } from '../domain/data';
 import { Block, Measurement, WeightUnit, displayDate, localDate, shiftDate } from '../domain/model';
-import { deleteMeasurement, parseWeight, recordWeight, weightIn } from '../domain/measurements';
+import {
+  convertWeight,
+  deleteMeasurement,
+  parseWeight,
+  recordWeight,
+  weightIn,
+} from '../domain/measurements';
 import { setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
@@ -62,6 +68,29 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
     existing?.entered.unit ?? last?.entered.unit ?? 'lb',
   );
   const [value, setValue] = useState(existing ? String(weightIn(existing, unit)) : '');
+  // What the number in the field stands for while only the unit changes: the saved weight being
+  // corrected, or the number as first typed in its unit. Each switch converts from it, so the
+  // field keeps meaning the same weight and toggling back and forth never drifts. Typing resets it.
+  const [origin, setOrigin] = useState<{ value: number; unit: WeightUnit } | 'saved' | null>(
+    existing ? 'saved' : null,
+  );
+  const switchUnit = (next: WeightUnit) => {
+    if (next === unit) return;
+    setUnit(next);
+    if (origin === 'saved' && existing) return setValue(String(weightIn(existing, next)));
+    let from = origin === 'saved' ? null : origin;
+    if (!from) {
+      try {
+        from = { value: parseWeight(value, unit), unit };
+      } catch {
+        // A blank or invalid number is left as it is, for its own message on Save.
+        return;
+      }
+      setOrigin(from);
+    }
+    setValue(String(convertWeight(from.value, from.unit, next)));
+    setError(null);
+  };
   const [fasted, setFasted] = useState(existing?.fasted ?? null);
   const [note, setNote] = useState(existing?.note ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +158,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
             value={value}
             onChange={(next) => {
               setValue(next);
+              setOrigin(null);
               setError(null);
             }}
             placeholder={last ? String(weightIn(last, unit)) : unit === 'lb' ? '180.4' : '81.8'}
@@ -141,7 +171,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           accessibilityLabel="Unit"
           style={{ flexDirection: 'row', gap: 6 }}>
           {(['lb', 'kg'] as const).map((u) => (
-            <Chip key={u} role="radio" title={u} on={unit === u} onPress={() => setUnit(u)} />
+            <Chip key={u} role="radio" title={u} on={unit === u} onPress={() => switchUnit(u)} />
           ))}
         </View>
       </View>

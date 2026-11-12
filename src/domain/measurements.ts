@@ -42,6 +42,15 @@ export function weightIn(m: Measurement, unit: WeightUnit): number {
   return m.entered.unit === unit ? m.entered.value : fromGrams(m.grams, unit);
 }
 
+/**
+ * A typed weight read in another unit, to one decimal, the way a saved weight is shown in that unit
+ * (`weightIn`). Converting back gives the nearest tenth, not always the number typed, so a form
+ * that lets the unit be switched converts from the value as first typed each time.
+ */
+export function convertWeight(value: number, from: WeightUnit, to: WeightUnit): number {
+  return from === to ? value : fromGrams(toGrams(value, from), to);
+}
+
 export type WeightInput = {
   /** Present when correcting an existing measurement. */
   id?: string;

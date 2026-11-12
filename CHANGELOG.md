@@ -7,6 +7,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 ### Fixed
 
 - Editing a block no longer undoes a Done recorded while the editor was open.
+- Switching a weight between lb and kg converts the number in the field, so 180 lb is never saved as 180 kg. Switching back shows the number as typed.
 
 ## 1.4.0 - 2026-11-04
 
