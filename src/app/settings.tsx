@@ -35,7 +35,7 @@ import {
   TimeField,
   styles,
 } from '../ui/components';
-import { Disclosure } from '../ui/controls';
+import { Disclosure, LinkButton } from '../ui/controls';
 import { fonts, palette, type } from '../ui/theme';
 import { Group, GroupBody, IconTile, Row, Toggle } from '../ui/list';
 import { useAnnouncement } from '../ui/announce';
@@ -116,7 +116,8 @@ export default function SettingsScreen() {
     [edits, setValues] = useState<Record<string, string>>({}),
     [error, setError] = useState<string | null>(null),
     [notice, setNotice] = useState<string | null>(null),
-    [raw, setRaw] = useState('');
+    [raw, setRaw] = useState(''),
+    [pasting, setPasting] = useState(false);
   // Feedback sits beside the control that caused it, never off screen at the top of the page.
   const [scheduleError, setScheduleError] = useState<string | null>(null),
     [scheduleSaved, setScheduleSaved] = useState(false),
@@ -261,13 +262,20 @@ export default function SettingsScreen() {
           demo.
         </Text>
         <Button title="Choose setup file" onPress={() => void choose()} />
-        <Field label="Or paste setup JSON" value={raw} onChange={setRaw} multiline />
-        <Button
-          secondary
-          title="Import pasted setup"
-          disabled={!raw.trim()}
-          onPress={() => void importText(raw)}
-        />
+        {/* Pasting is the rare path once a plan exists: one quiet link opens it. */}
+        {state.programs.length > 0 && !pasting ? (
+          <LinkButton title="Paste instead" onPress={() => setPasting(true)} />
+        ) : (
+          <>
+            <Field label="Or paste setup JSON" value={raw} onChange={setRaw} multiline />
+            <Button
+              secondary
+              title="Import pasted setup"
+              disabled={!raw.trim()}
+              onPress={() => void importText(raw)}
+            />
+          </>
+        )}
         {error && (
           <Text accessibilityRole="alert" style={styles.alert}>
             {error}
@@ -305,7 +313,7 @@ export default function SettingsScreen() {
       </Group>
       <Group
         title="Home Screen widget"
-        footer="Small and medium show your next action; Large lists today's public objectives and ticks one-tap ones. Private objectives never appear. Day Cleared counts every objective, private ones too, and anyone who sees your Home Screen can see it; it never shows titles, counts or streaks.">
+        footer="Shows a check on the widget when the day is cleared.">
         <Toggle
           inset
           title="Show Day Cleared"
@@ -320,6 +328,14 @@ export default function SettingsScreen() {
           }
         />
       </Group>
+      <Disclosure title="About widgets">
+        <Text style={styles.muted}>
+          Small and medium show your next action; Large lists today&apos;s public objectives and
+          ticks one-tap ones. Private objectives never appear. Day Cleared counts every objective,
+          private ones too, and anyone who sees your Home Screen can see it; it never shows titles,
+          counts or streaks.
+        </Text>
+      </Disclosure>
       <View style={{ gap: 8 }}>
         <Text accessibilityRole="header" style={groupHeading}>
           Plan

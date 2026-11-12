@@ -257,6 +257,24 @@ test('a setup that cannot be read says why inside the import card', async ({ pag
   expect(box.y).toBeLessThan(local.y);
 });
 
+test('with a plan, the import keeps Choose setup file and folds the paste box', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/settings' });
+  await page.getByRole('button', { name: 'Import a private setup. Show', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Choose setup file', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Paste instead', exact: true }).click();
+  await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toBeVisible();
+  // The widget caption is one line; the details sit in their own fold.
+  await expect(
+    page.getByText('Shows a check on the widget when the day is cleared.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/^Small and medium show your next action/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'About widgets. Show', exact: true }).click();
+  await expect(page.getByText(/^Small and medium show your next action/)).toBeVisible();
+});
+
 test('schedule settings say what is wrong and that they saved, beside Save', async ({ page }) => {
   await seed(page, trainingState(), { route: '/settings' });
   await page.getByRole('button', { name: /^Day boundaries and work schedule\. Show$/ }).click();
