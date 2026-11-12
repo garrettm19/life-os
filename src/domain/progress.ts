@@ -250,12 +250,24 @@ const inProgress = (window: RangeWindow, weekStart: string) => weekStart === wee
  * A sparkline of about a dozen points: a tile is too small for more to read as a trend. Points are
  * gathered by week, or by four weeks over a year (13 points), and each span gives its total, its
  * last value (a streak as it stood) or its mean (a score, to one decimal).
+ *
+ * A total for the span that holds today is only part of one, so it would end every line on a dip
+ * early in the week: a `sum` leaves that span out and the tile says this week so far in words
+ * (`soFar`). A `last` keeps it, since a streak as it stands today is whole. `keepCurrent` keeps
+ * the span in progress for a total too (the trading tile, which this rule leaves as it was).
  */
-function sparkOf(window: RangeWindow, points: Point[], fold: 'sum' | 'last' | 'mean'): Point[] {
+function sparkOf(
+  window: RangeWindow,
+  points: Point[],
+  fold: 'sum' | 'last' | 'mean',
+  { keepCurrent = false }: { keepCurrent?: boolean } = {},
+): Point[] {
   const span = window.weeks > 12 ? 28 : 7;
+  const current = Math.floor(daysBetween(window.from, window.to) / span);
   const spans = new Map<number, number[]>();
   for (const p of points) {
     const i = Math.floor(daysBetween(window.from, p.date) / span);
+    if (fold === 'sum' && !keepCurrent && i === current) continue;
     spans.set(i, [...(spans.get(i) ?? []), p.y]);
   }
   return [...spans].map(([i, ys]) => ({
@@ -267,6 +279,14 @@ function sparkOf(window: RangeWindow, points: Point[], fold: 'sum' | 'last' | 'm
           ? ys.reduce((a, b) => a + b, 0)
           : Math.round((10 * ys.reduce((a, b) => a + b, 0)) / ys.length) / 10,
   }));
+}
+
+/**
+ * "This week so far · 2": the week in progress, which a total's sparkline leaves out. Nothing
+ * while the week has none yet, so a tile never ends on a zero.
+ */
+function soFarText(count: number): string | null {
+  return count > 0 ? `This week so far · ${count}` : null;
 }
 
 // Tiles.
@@ -286,6 +306,11 @@ export type Tile = {
   change: string | null;
   /** A small trend under the figure, oldest first: one point per week or per session. */
   spark: Point[];
+  /**
+   * The week in progress in words ("This week so far · 2"), for a tile whose sparkline leaves it
+   * out; null otherwise or while the week has none yet.
+   */
+  soFar: string | null;
   /** What will fill an empty tile, in one short line; null once it has a value. */
   empty: string | null;
 };
@@ -307,6 +332,7 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'Clear a day on Today to start the streak.',
     };
   const { current, best } = runs.at(-1)!;
@@ -336,6 +362,7 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
     change:
       delta === null ? `Nothing recorded ${window.words.ago}` : changeText(delta, window.words.ago),
     spark: sparkOf(window, spark, 'last'),
+    soFar: null,
     empty: null,
   };
 }
@@ -369,6 +396,7 @@ export function clearedTile(window: RangeWindow, runs: StreakRun[]): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'A day counts here once it is cleared or over.',
     };
   const delta = previous.counted ? range.cleared - previous.cleared : null;
@@ -387,6 +415,7 @@ export function clearedTile(window: RangeWindow, runs: StreakRun[]): Tile {
       weeks.flatMap((w, i) => (w.counted ? [{ date: window.weekStarts[i], y: w.cleared }] : [])),
       'sum',
     ),
+    soFar: soFarText(weeks.at(-1)!.cleared),
     empty: null,
   };
 }
@@ -448,6 +477,7 @@ export function studyTile(window: RangeWindow, days: StudyDays): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: days.streak?.since
         ? 'Finish a study session to start counting.'
         : 'Study days count once the study streak starts.',
@@ -469,6 +499,7 @@ export function studyTile(window: RangeWindow, days: StudyDays): Tile {
       weeks.flatMap((w, i) => (w.eligible ? [{ date: window.weekStarts[i], y: w.kept }] : [])),
       'sum',
     ),
+    soFar: soFarText(weeks.at(-1)!.kept),
     empty: null,
   };
 }
@@ -523,6 +554,7 @@ export function tradingTile(window: RangeWindow, days: TradingDays): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'Review a trading session to start the count.',
     };
   const clean = range.filter((s) => s.clean).length;
@@ -542,7 +574,9 @@ export function tradingTile(window: RangeWindow, days: TradingDays): Tile {
       window,
       range.map((s) => ({ date: s.date, y: s.clean ? 1 : 0 })),
       'sum',
+      { keepCurrent: true },
     ),
+    soFar: null,
     empty: null,
   };
 }

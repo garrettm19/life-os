@@ -16,6 +16,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - A weight at either end of the range stays valid when switched to the other unit: kg entries now run 9.1–317.5, the same 20–700 lb range.
 - Editing a program, routine or goal inside the demo keeps the DEMO tag and Start tracking, so the demo's fictional history is never labeled as yours. Start tracking keeps the edits.
 - Deleting a money review that completed its objective asks whether to undo that Done too, so a review never leaves behind a Done it no longer backs.
+- The Days cleared and Study days sparklines on Progress end on the last finished week instead of dipping on the week in progress, and the tile says this week so far in words ("This week so far · 2"). Over a year, the four weeks in progress are left out the same way.
 
 ## 1.4.0 - 2026-11-04
 

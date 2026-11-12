@@ -6,7 +6,7 @@ import { styles } from './components';
 import { fonts, palette, radius, type } from './theme';
 
 // The KPI row's stat tile: the label, the figure, one detail line, the change against the previous
-// range in words and a small sparkline. A tile with nothing to show says what will fill it.
+// range in words, a small sparkline of finished weeks and this week so far. A tile with nothing to show says what will fill it.
 
 type Point = { date: string; y: number };
 
@@ -166,7 +166,7 @@ function Value({ value }: { value: string }) {
 
 export function StatTile({ tile }: { tile: Tile }) {
   const words = tile.value
-    ? [tile.value, tile.detail, tile.change].filter(Boolean).join('. ')
+    ? [tile.value, tile.detail, tile.change, tile.soFar].filter(Boolean).join('. ')
     : (tile.empty ?? '');
   return (
     <View
@@ -197,6 +197,10 @@ export function StatTile({ tile }: { tile: Tile }) {
           <View style={{ marginTop: 6 }}>
             <Sparkline points={tile.spark} />
           </View>
+          {/* The week in progress, which the sparkline leaves out, in words. */}
+          {!!tile.soFar && (
+            <Text style={{ ...type.footnote, color: palette.label2 }}>{tile.soFar}</Text>
+          )}
         </>
       ) : (
         <Text style={{ ...type.caption, color: palette.label2 }}>{tile.empty}</Text>
