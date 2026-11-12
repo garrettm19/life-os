@@ -77,13 +77,15 @@ test("Today is one list in the order of the day, and tomorrow's preview is read-
   ).toHaveCount(0);
   await expect(page.getByTestId('study-card')).toHaveCount(0);
   await expect(page.getByTestId('row:Daily study')).toHaveCount(1);
-  await expect(page.getByText(/to clear the day|to go$/i)).toBeVisible();
+  // An untouched day says its count once (0/N), without a goal line repeating it.
+  await expect(page.getByText(/to clear the day|to go$/i)).toHaveCount(0);
   // The next thing to do has the Ember outline; ticking it passes that on, and the done row
   // stays where it was.
   await expect(outline(rows.nth(0))).toHaveCSS('border-top-color', rgb(palette.accent));
   await expect(outline(rows.nth(1))).toHaveCSS('border-top-color', rgb(palette.checkEdge));
   await page.getByRole('button', { name: 'Mark Job search done', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Undo Job search', exact: true })).toBeVisible();
+  await expect(page.getByText(/to clear the day|to go$/i)).toBeVisible();
   await expect(outline(rows.nth(1))).toHaveCSS('border-top-color', rgb(palette.accent));
   expect(await ids()).toEqual(order);
   const preview = page.getByRole('button', { name: /^Tomorrow, Tue, Nov 10: \d+ due/ });

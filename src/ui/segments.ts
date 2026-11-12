@@ -49,6 +49,9 @@ export function callout(progress: DayProgress, past = false): Callout | null {
     if (progress.remaining === 1) return { text: 'One more to clear the day', tone: 'text' };
     if (progress.done > 0 && progress.done * 2 >= progress.total)
       return { text: `Halfway there · ${progress.remaining} to go`, tone: 'text' };
+    // Before anything is done, "5 to clear the day" only repeats the 0/5 beside it: the count
+    // says it once.
+    if (progress.done === 0) return null;
     return { text: `${progress.remaining} to clear the day`, tone: 'text' };
   }
   // Everything required was skipped: excused, but nothing was done, so the day is not cleared.

@@ -42,7 +42,7 @@ A record and the Done it earns are saved together, so neither exists without the
 ## Scheduling
 
 - **Weekdays and repeats.** `onItsDays` in `src/domain/repeat.ts` is the one due-day rule: the date's weekday is one of the routine's weekdays, in one of its repeat weeks (weekly, or every 2 to 12 weeks). No default weekday is invented.
-- **Rotations.** A program can rotate its workouts with rest weekdays. The next workout is derived from the latest completed one, never stored. Only the actual day gets its workout; later days show a projection. Skip on a rotation workout rests the program for the day, and the workout moves to the next training day.
+- **Rotations.** A program can rotate its workouts with rest weekdays. The next workout is derived from the latest completed one, never stored. Only the actual day gets its workout; later days show a projection. Skip on a rotation workout rests the program for the day, and the workout moves to the next training day. A rest day reads "Rest day · next up: …" on Today with a small Train anyway; once the day is cleared, Train anyway waits in More for today, so a finished day offers no more work above the fold.
 - **Companions.** A routine can follow certain workouts (a stretch after leg day) and is due wherever they are.
 - **Bundled steps.** A routine can appear as a step inside a session of its program. Day Cleared counts the steps, not the parent.
 - **Optional objectives** are encouraged but never required.

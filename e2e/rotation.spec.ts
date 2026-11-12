@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import type { State } from '../src/domain/model';
 import { withDay } from '../src/domain/data';
-import { generateDay } from '../src/domain/planner';
+import { ensureChecklistDay, generateDay } from '../src/domain/planner';
 import { trainingState } from '../src/test-support/fixtures';
 import { saveSession, sessionFor, startSession } from '../src/domain/workouts';
 import { setRotation } from '../src/domain/rotation';
 import { saved, seed } from './support/storage';
+import { openMore } from './support/today';
 
 // Synthetic data only: the fixture's Upper and Lower body workouts plus a home routine that follows
 // Upper body. The browser clock is pinned to a Monday so the rotation's "today" is known.
@@ -104,15 +105,52 @@ test('a rotation places one workout a day with its companion, rests without adva
     .click();
   await expect(page.getByRole('button', { name: 'Start Lower body', exact: true })).toBeVisible();
   await expect(page.getByTestId('rested:Lower body')).toHaveCount(0);
-  // A default rest weekday reads as a rest day, one line with its Train today link.
+  // A default rest weekday reads as a rest day, one line with what is next and Train anyway.
   await page.clock.setFixedTime(new Date(2026, 10, 15, 12));
   await page.goto('/');
-  await expect(page.getByText('Training · rest day · Lower body next')).toBeVisible();
+  await expect(page.getByText('Rest day · next up: Lower body', { exact: true })).toBeVisible();
   const note = (await page.getByTestId('rest-day').boundingBox())!;
   expect(note.height).toBeLessThanOrEqual(48);
   const train = page.getByRole('button', { name: 'Train Training today instead of resting' });
-  await expect(train).toHaveText('Train today');
+  await expect(train).toHaveText('Train anyway');
   expect((await train.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
+
+test('a cleared rest day offers no more training above the fold; Train anyway waits in More', async ({
+  page,
+}) => {
+  // Sunday rests the rotation, and everything else due that day is done: the day is cleared.
+  const SUN = '2026-11-15';
+  const state = rotating();
+  const sunday = ensureChecklistDay(
+    SUN,
+    state.settings,
+    state.programs,
+    undefined,
+    at(15).toISOString(),
+  );
+  const done = {
+    ...sunday,
+    blocks: sunday.blocks.map((b) => ({
+      ...b,
+      status: 'done' as const,
+      actualAt: at(15).toISOString(),
+    })),
+  };
+  expect(done.blocks.length).toBeGreaterThan(0);
+  await seed(page, withDay(state, done), { clock: at(15), route: '/' });
+  await expect(page.getByTestId('today-hero').getByText('Day cleared')).toBeVisible();
+  // The line still says why no workout is listed, and what is next, without a button.
+  const line = page.getByTestId('rest-day');
+  await expect(line).toHaveText('Rest day · next up: Upper body');
+  const train = page.getByRole('button', { name: 'Train Training today instead of resting' });
+  await expect(train).toHaveCount(0);
+  // Training anyway is still one tap, in the fold.
+  await openMore(page);
+  await expect(train).toHaveText('Train anyway');
+  await train.click();
+  await expect(page.getByRole('button', { name: 'Start Upper body', exact: true })).toBeVisible();
+  expect((await saved(page)).days[SUN].blocks.some((b) => b.routineId === 'upper')).toBe(true);
 });
 
 test('turning a rotation off gives each workout its earlier days back after confirming them', async ({

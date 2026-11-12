@@ -14,6 +14,7 @@ import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
 import {
   Block,
+  Program,
   clock,
   dateObject,
   displayDate,
@@ -438,6 +439,23 @@ export default function TodayScreen() {
             !rested.some((r) => r.program.id === p.id),
         )
       : [];
+  // "Rest day · next up: Lower body", named by its program when more than one rests.
+  const restDayLine = (p: Program) => {
+    const title = p.routines.find((r) => r.id === nextWorkout(state, p, date))?.title;
+    return `${resting.length > 1 ? `${p.title} · rest day` : 'Rest day'}${title ? ` · next up: ${title}` : ''}`;
+  };
+  // Training on a rest day after all: the program's next workout joins the day.
+  const trainAnyway = (p: Program) =>
+    nextWorkout(state, p, date) ? (
+      <Button
+        key={p.id}
+        secondary
+        small
+        title={resting.length > 1 ? `Train ${p.title} anyway` : 'Train anyway'}
+        label={`Train ${p.title} ${date === today ? 'today' : 'this day'} instead of resting`}
+        onPress={() => void change((s) => trainDay(s, p.id, date, new Date().toISOString()))}
+      />
+    ) : null;
   // A later training day holds no rotation workout until it is the actual day: one line says
   // which is projected, as Week and the Tomorrow preview do. The day's count is left as saved.
   const projectedLines = projectedWorkouts(state, date, today);
@@ -793,31 +811,18 @@ export default function TodayScreen() {
         </View>
       )}
       <RestoreSheet restore={restore} />
-      {/* A rest day is part of today's plan: one line says why no workout is listed, so the list
-          still starts near the top. */}
-      {resting.map((p) => {
-        const next = nextWorkout(state, p, date);
-        const title = p.routines.find((r) => r.id === next)?.title;
-        return (
-          <View
-            key={p.id}
-            testID="rest-day"
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={[type.caption, { flex: 1, minWidth: 0 }]}>
-              {p.title} · rest day · {title ? `${title} next` : 'nothing next'}
-            </Text>
-            {next && (
-              <LinkButton
-                title={date === today ? 'Train today' : 'Train this day'}
-                label={`Train ${p.title} ${date === today ? 'today' : 'this day'} instead of resting`}
-                onPress={() =>
-                  void change((s) => trainDay(s, p.id, date, new Date().toISOString()))
-                }
-              />
-            )}
-          </View>
-        );
-      })}
+      {/* A rest day is part of today's plan: one line says why no workout is listed and what is
+          next, so the list still starts near the top. Once the day is cleared, Train anyway waits
+          in the fold, so a finished day offers no more work above it. */}
+      {resting.map((p) => (
+        <View
+          key={p.id}
+          testID="rest-day"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Text style={[type.caption, { flex: 1, minWidth: 0 }]}>{restDayLine(p)}</Text>
+          {!progress.cleared && trainAnyway(p)}
+        </View>
+      ))}
       {projectedLines.map((w) => (
         <Text key={w.program.id} testID="projected-workout" style={type.caption}>
           {w.program.title} · {w.title}
@@ -1002,6 +1007,8 @@ export default function TodayScreen() {
                   onPress={() => setOrderOpen(true)}
                 />
               )}
+              {/* On a cleared rest day, training anyway is still one tap, here. */}
+              {progress.cleared && resting.map(trainAnyway)}
               {/* Generating or replanning a past day would rewrite recorded history. */}
               {date >= today && (
                 <>
