@@ -4,6 +4,10 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Fixed
+
+- Editing a block no longer undoes a Done recorded while the editor was open.
+
 ## 1.4.0 - 2026-11-04
 
 ### Changed

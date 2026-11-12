@@ -428,40 +428,52 @@ export function ensureChecklistDay(
   };
   return record(previous ? revision(previous, blocks, 'Ensure due checklist items', now) : result);
 }
+/**
+ * Adds a block, or edits one already on the day. The block editor on Today is the only caller that
+ * edits: its sheet holds a copy of the block from when it opened, and a Done, Skip or bundled
+ * completion can be recorded meanwhile (a widget tick applied on return, a row tick, a recorder).
+ * So an edit takes only the fields that sheet changes and keeps everything else as stored now.
+ */
 export function editBlock(
   day: Day,
   changed: Block,
   settings: Settings,
   now = new Date().toISOString(),
 ): Day {
-  if (!changed.title.trim()) throw new Error('Give this block a name.');
-  if (
-    changed.duration !== null &&
-    (!Number.isInteger(changed.duration) || changed.duration < 1 || changed.duration > 720)
-  )
-    throw new Error('Duration must be 1–720 whole minutes.');
-  if (changed.start !== null) {
-    if (changed.duration === null) throw new Error('Set a duration before scheduling.');
-    if (
-      !Number.isInteger(changed.start) ||
-      changed.start < settings.wake ||
-      changed.start + changed.duration > settings.bedtime
-    )
-      throw new Error('This block is outside your wake-to-bedtime window.');
-    if (day.blocks.some((b) => b.id !== changed.id && overlaps(b, changed)))
-      throw new Error('That slot overlaps another block. Choose a free time.');
-  }
   const current = day.blocks.find((b) => b.id === changed.id);
   // A routine's occurrence is only ever edited where it is: adding it again would make a second copy.
   if (!current && changed.routineId) throw new Error('This block no longer exists.');
-  // A time editor may have opened before a bundled completion was recorded.
-  if (current?.bundledSteps)
-    changed = { ...changed, bundledSteps: copyBlock(current).bundledSteps };
-  const exists = !!current;
-  const blocks = exists
-    ? day.blocks.map((b) => (b.id === changed.id ? changed : b))
-    : [...day.blocks, changed];
-  return revision(day, blocks, exists ? 'Edit block' : 'Add block', now);
+  const next: Block = current
+    ? {
+        ...current,
+        title: changed.title,
+        start: changed.start,
+        duration: changed.duration,
+        fixed: changed.fixed,
+        reason: changed.reason,
+      }
+    : changed;
+  if (!next.title.trim()) throw new Error('Give this block a name.');
+  if (
+    next.duration !== null &&
+    (!Number.isInteger(next.duration) || next.duration < 1 || next.duration > 720)
+  )
+    throw new Error('Duration must be 1–720 whole minutes.');
+  if (next.start !== null) {
+    if (next.duration === null) throw new Error('Set a duration before scheduling.');
+    if (
+      !Number.isInteger(next.start) ||
+      next.start < settings.wake ||
+      next.start + next.duration > settings.bedtime
+    )
+      throw new Error('This block is outside your wake-to-bedtime window.');
+    if (day.blocks.some((b) => b.id !== next.id && overlaps(b, next)))
+      throw new Error('That slot overlaps another block. Choose a free time.');
+  }
+  const blocks = current
+    ? day.blocks.map((b) => (b.id === next.id ? next : b))
+    : [...day.blocks, next];
+  return revision(day, blocks, current ? 'Edit block' : 'Add block', now);
 }
 export function setStatus(
   day: Day,
