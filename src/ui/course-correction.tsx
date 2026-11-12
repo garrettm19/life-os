@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 import { activeFocus } from '../domain/focus';
 import { focusEvidence } from '../domain/focus-evidence';
@@ -115,6 +116,16 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
 export function CourseCorrection() {
   const { state } = useApp();
   const [editing, setEditing] = useState<string | null>(null);
+  // Opened from Today's "Two minutes on your week?": the editor for that week opens at once, once.
+  const asked = useLocalSearchParams<{ review?: string }>().review;
+  const [answered, setAnswered] = useState<string | null>(null);
+  if (asked && asked !== answered) {
+    setAnswered(asked);
+    setEditing(asked);
+  }
+  useEffect(() => {
+    if (asked) router.setParams({ review: undefined });
+  }, [asked]);
   if (!state.programs.length) return null;
   const today = localDate();
   // On a Monday the week has just begun: the review is for the week that ended, unless that one

@@ -128,7 +128,7 @@ export function openObjective(block: Block): ObjectiveLeaf | undefined {
 
 const UNKNOWN_TIMED_TITLE = 'A timed session';
 
-function findRoutine(programs: Program[], routineId: string): Routine | undefined {
+export function findRoutine(programs: Program[], routineId: string): Routine | undefined {
   for (const program of programs) {
     const routine = program.routines.find((item) => item.id === routineId);
     if (routine) return routine;

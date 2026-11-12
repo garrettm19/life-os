@@ -47,6 +47,7 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { HousekeepingLine } from '../ui/housekeeping-line';
 import { MonthCalendar } from '../ui/dot-calendar';
 import { dismissFinish, finishDismissed } from '../ui/finish-yesterday';
 import { MorningCaption, morningTrail } from '../ui/morning-trail';
@@ -102,7 +103,6 @@ import { loadStudyRun } from '../data/study-store';
 import { dayListOrder, nextOpen, todayList } from '../domain/day-order';
 import { clearedTitles, greeting, recordedSub, timeRange } from '../ui/today-text';
 import { currentPriority } from '../domain/money';
-import { backupReminder } from '../domain/backup-reminder';
 import { MoneyPriorityCard } from '../ui/money-priority';
 import { tradingBook } from '../domain/trading';
 import { TradingRow } from '../ui/trading-card';
@@ -658,7 +658,6 @@ export default function TodayScreen() {
   ]
     .filter(Boolean)
     .join(', ');
-  const reminder = isToday ? backupReminder(state, now) : null;
   // The header is the title alone, so the list starts high; the date is read with the title and
   // shown in More. Until saved data loads, the static web render and the first client one match.
   const longDate = dateObject(date).toLocaleDateString('en-US', {
@@ -953,14 +952,7 @@ export default function TodayScreen() {
             No objectives yet. Open {moreTitle} to plan the day or add a block: the day is yours.
           </Text>
         )}
-      {reminder && (
-        <LinkButton
-          title={reminder}
-          label={`${reminder} Open Backup and restore.`}
-          tone="dim"
-          onPress={() => router.push('/backup')}
-        />
-      )}
+      {ready && isToday && <HousekeepingLine now={now} />}
       {/* The list comes first; everything else waits here, one tap away. */}
       <Disclosure title={moreTitle} summary={moreSummary}>
         <View style={{ gap: 16 }}>

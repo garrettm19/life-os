@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
@@ -25,6 +25,9 @@ import {
 import { GoalEditor } from '../ui/goal-editor';
 import { addGoal } from '../domain/goals';
 import { pickSetup } from '../data/pick-setup';
+import { measureBackup } from '../ui/backup-size';
+import { backupSizeWarning } from '../domain/housekeeping';
+import { MAX_BACKUP_BYTES } from '../domain/backup';
 import {
   Button,
   Field,
@@ -118,6 +121,8 @@ export default function SettingsScreen() {
     [notice, setNotice] = useState<string | null>(null),
     [raw, setRaw] = useState(''),
     [pasting, setPasting] = useState(false);
+  // Measured when Settings opens, never on a save; Today's housekeeping line reads it too.
+  const bytes = useMemo(() => measureBackup(state), [state]);
   // Feedback sits beside the control that caused it, never off screen at the top of the page.
   const [scheduleError, setScheduleError] = useState<string | null>(null),
     [scheduleSaved, setScheduleSaved] = useState(false),
@@ -300,7 +305,11 @@ export default function SettingsScreen() {
           icon="backup"
           tone="sky"
           title="Backup and restore"
-          detail={`Last backup: ${lastBackupText(state, new Date())}`}
+          detail={`Last backup: ${lastBackupText(state, new Date())}${
+            backupSizeWarning(bytes)
+              ? ` · ${Math.round((bytes / MAX_BACKUP_BYTES) * 100)}% of the 20 MB limit`
+              : ''
+          }`}
           onPress={() => router.push('/backup')}
         />
         <Row

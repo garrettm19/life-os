@@ -1,8 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Text, View } from 'react-native';
-import { encodeBackup } from '../domain/backup';
-import { exportBackup } from '../data/export-backup';
 import { useApp } from '../state/app-state';
 import { Button, Page, styles } from '../ui/components';
 import { Group, GroupBody, IconTile } from '../ui/list';
@@ -10,70 +8,34 @@ import { type } from '../ui/theme';
 import { lastBackupText } from '../domain/backup-reminder';
 import { useAnnouncement } from '../ui/announce';
 import { RestoreDone, RestoreSheet, useRestore } from '../ui/restore-sheet';
+import { useBackupExport } from '../ui/use-backup-export';
+import { measureBackup } from '../ui/backup-size';
+import { backupSizeWarning } from '../domain/housekeeping';
 
 export default function BackupScreen() {
-  const { state, change, clearError } = useApp();
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  // A share-sheet export the user has not yet confirmed saving; only that confirmation records it.
-  const [unconfirmed, setUnconfirmed] = useState(false);
+  const { state } = useApp();
+  const backup = useBackupExport();
+  // Measured here, never on a save: Today's housekeeping line reads it for the rest of this run.
+  const bytes = useMemo(() => measureBackup(state), [state]);
+  const { working, error, notice, unconfirmed, reset } = backup;
   // Choosing a backup clears what an export said; the restore keeps its own notice and error.
-  const restore = useRestore(() => {
-    setError(null);
-    setNotice(null);
-    setUnconfirmed(false);
-  });
+  const restore = useRestore(reset);
   const { dismiss } = restore;
   useAnnouncement(error);
   useAnnouncement(notice);
-  // Only the time of the export is kept, for the backup reminder; it never travels in a backup.
-  const recordBackup = () => {
-    const at = new Date().toISOString();
-    return change((s) => ({ ...s, settings: { ...s.settings, lastBackupAt: at } }));
-  };
-  const save = async () => {
-    setWorking(true);
-    setError(null);
-    setNotice(null);
-    setUnconfirmed(false);
+  const save = () => {
     dismiss();
-    clearError();
-    try {
-      const result = await exportBackup(encodeBackup(state));
-      setNotice(result.notice);
-      if (result.confirmed) await recordBackup();
-      else setUnconfirmed(true);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Could not export the backup. Your saved data has not changed.',
-      );
-    } finally {
-      setWorking(false);
-    }
+    void backup.save();
   };
-  const confirmSaved = async () => {
-    setWorking(true);
-    try {
-      if (await recordBackup()) {
-        setUnconfirmed(false);
-        setNotice('Backup time recorded.');
-      }
-    } finally {
-      setWorking(false);
-    }
-  };
+  const confirmSaved = () => void backup.confirmSaved();
   useFocusEffect(
     useCallback(() => {
       return () => {
         dismiss();
         // Leaving without confirming an export records nothing.
-        setUnconfirmed(false);
-        setNotice(null);
+        reset();
       };
-    }, [dismiss]),
+    }, [dismiss, reset]),
   );
   return (
     <Page title="Backup" back hideError={restore.pending !== null}>
@@ -85,12 +47,7 @@ export default function BackupScreen() {
       {notice && <Text style={styles.body}>{notice}</Text>}
       {restore.steps && <RestoreDone steps={restore.steps} />}
       {unconfirmed && (
-        <Button
-          secondary
-          title="I saved the backup"
-          onPress={() => void confirmSaved()}
-          disabled={working}
-        />
+        <Button secondary title="I saved the backup" onPress={confirmSaved} disabled={working} />
       )}
       <View style={[styles.card, { gap: 14 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -100,17 +57,18 @@ export default function BackupScreen() {
               Back up
             </Text>
             <Text style={type.caption}>Last backup: {lastBackupText(state, new Date())}</Text>
+            {backupSizeWarning(bytes) && (
+              <Text style={type.caption}>
+                Size: {(bytes / 1_000_000).toFixed(1)} MB of the 20 MB a backup can hold
+              </Text>
+            )}
           </View>
         </View>
         <Text style={styles.body}>
           One file with everything: goals, programs, records and history, workouts, weights, money,
           the log and your trading rules and sessions.
         </Text>
-        <Button
-          title="Export backup"
-          onPress={() => void save()}
-          disabled={working || restore.working}
-        />
+        <Button title="Export backup" onPress={save} disabled={working || restore.working} />
       </View>
       <Group
         title="Keeping it safe"
