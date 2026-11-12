@@ -15,7 +15,7 @@ import { sessionStore } from '../data/timer-store';
 import {
   Block,
   Program,
-  clock,
+  timeInput,
   dateObject,
   displayDate,
   displayTime,
@@ -35,7 +35,7 @@ import {
   streakHistory,
 } from '../domain/objectives';
 import { editBlock, generateDay, makeBlock, replanDay, setStatus } from '../domain/planner';
-import { Button, Field, Page, SectionLabel, Sheet, styles } from '../ui/components';
+import { Button, Field, Page, SectionLabel, Sheet, TimeField, styles } from '../ui/components';
 import { Disclosure, LinkButton } from '../ui/controls';
 import { RestoreDone, RestoreSheet, useRestore } from '../ui/restore-sheet';
 import {
@@ -285,7 +285,7 @@ export default function TodayScreen() {
     setEditing(value);
     setEditingDate(on);
     setTitle(value.title);
-    setTime(value.start === null ? '' : clock(value.start));
+    setTime(value.start === null ? '' : timeInput(value.start));
     setDuration(String(value.duration ?? ''));
     setFixed(value.fixed);
     setFormError(null);
@@ -1078,12 +1078,12 @@ export default function TodayScreen() {
         close={() => setEditing(null)}>
         <Field label="Block name" value={title} onChange={setTitle} name />
         {!editing?.checklist && (
-          <Field
-            label="Start time (24-hour, blank = unscheduled)"
+          <TimeField
+            label="Start time"
             value={time}
             onChange={setTime}
-            placeholder="14:30"
-            time
+            optional
+            hint="For example 2:30 PM. Blank leaves it unscheduled."
           />
         )}
         <Field label="Duration in minutes" value={duration} onChange={setDuration} numeric />

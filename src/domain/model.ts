@@ -944,14 +944,41 @@ export function weekStartOf(key: string): string {
 export function calendarDays(key: string, weeks = 4): number {
   return daysBetween(shiftDate(weekStartOf(key), -7 * (weeks - 1)), key) + 1;
 }
+/**
+ * A typed time of day in minutes. Takes 24-hour `H:MM` (`7:30` is 07:30, as it always was) and
+ * 12-hour `H:MM am`, `H am`, `7pm` or `7:30 p.m.`. Bare digits (`730`) are refused: they read two
+ * ways. With `allowMidnight` (a bedtime, a latest finish), `24:00` and 12 AM both mean the end of
+ * the day, 1440.
+ */
 export function parseTime(value: string, allowMidnight = false): number {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
-  if (!match) throw new Error('Use 24-hour time, for example 14:30.');
+  const text = value.trim().toLowerCase().replace(/\./g, '');
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?$/.exec(text);
+  if (!match || (match[2] === undefined && match[3] === undefined))
+    throw new Error('Enter a time like 7:30 AM or 19:30.');
   const h = Number(match[1]),
-    m = Number(match[2]);
+    m = Number(match[2] ?? 0);
+  if (m > 59) throw new Error('That time is outside the day.');
+  if (match[3] !== undefined) {
+    if (h < 1 || h > 12) throw new Error('Use 1 to 12 with AM or PM, for example 7:30 PM.');
+    const pm = match[3].startsWith('p');
+    if (!pm && h === 12) return m === 0 && allowMidnight ? 1440 : m;
+    return ((h % 12) + (pm ? 12 : 0)) * 60 + m;
+  }
   if (h === 24 && m === 0 && allowMidnight) return 1440;
-  if (h > 23 || m > 59) throw new Error('That time is outside the day.');
+  if (h > 23) throw new Error('That time is outside the day.');
   return h * 60 + m;
+}
+/** `parseTime` that gives null instead of throwing, for a live echo under the field. */
+export function readTime(value: string, allowMidnight = false): number | null {
+  try {
+    return value.trim() ? parseTime(value, allowMidnight) : null;
+  } catch {
+    return null;
+  }
+}
+/** A saved time as it is prefilled for editing: the 12-hour form it is shown in everywhere. */
+export function timeInput(minutes: number): string {
+  return displayTime(minutes);
 }
 export function clock(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;

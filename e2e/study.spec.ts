@@ -207,7 +207,7 @@ test('the study plan can be edited from the session; a running session keeps its
   await timer(page).click();
   await page.getByRole('button', { name: 'Edit plan, time and reminders', exact: true }).click();
   await page.getByLabel('Stage 3 minutes', { exact: true }).fill('10');
-  await page.getByLabel('Preferred study time (24-hour, optional)', { exact: true }).fill('19:30');
+  await page.getByLabel('Study time', { exact: true }).fill('19:30');
   await page.getByRole('button', { name: 'Save study plan', exact: true }).click();
   await expect(page.getByText('65:00', { exact: true })).toBeVisible();
   await expect(page.getByText('3 stages · planned 7:30 PM')).toBeVisible();
@@ -296,14 +296,16 @@ test('reminder choices are saved with the plan and say honestly where they work'
   // A start reminder needs a time.
   await page.getByRole('button', { name: 'Save study plan', exact: true }).click();
   await expect(page.getByText(/Choose a study time for the reminder/)).toBeVisible();
-  await page.getByLabel('Preferred study time (24-hour, optional)', { exact: true }).fill('19:00');
+  await page.getByLabel('Study time', { exact: true }).fill('19:00');
   await page
     .getByRole('switch', { name: 'Evening reminder if the study is still open', exact: true })
     .click();
-  await page.getByLabel('Evening reminder time (24-hour)', { exact: true }).fill('9pm');
+  await page.getByLabel('Evening reminder time', { exact: true }).fill('930');
   await page.getByRole('button', { name: 'Save study plan', exact: true }).click();
-  await expect(page.getByText(/Enter the evening reminder time in 24-hour form/)).toBeVisible();
-  await page.getByLabel('Evening reminder time (24-hour)', { exact: true }).fill('21:30');
+  await expect(
+    page.getByText(/Enter the evening reminder time, for example 8:30 PM/),
+  ).toBeVisible();
+  await page.getByLabel('Evening reminder time', { exact: true }).fill('21:30');
   await page.getByRole('switch', { name: "Alert when a stage's time is up", exact: true }).click();
   await page.getByRole('button', { name: 'Save study plan', exact: true }).click();
   await expect(page.getByText('3 stages · planned 7:00 PM')).toBeVisible();
@@ -357,12 +359,10 @@ test('a daily study reminder is set from the Today row in a few taps, with no ti
   await open(page);
   await details(page);
   await row(page).getByRole('button', { name: 'Set a study reminder', exact: true }).click();
-  await expect(
-    page.getByLabel('Preferred study time (24-hour, optional)', { exact: true }),
-  ).toHaveValue('');
+  await expect(page.getByLabel('Study time', { exact: true })).toHaveValue('');
   await page.getByRole('switch', { name: 'Remind me at my study time', exact: true }).click();
   await expect(page.getByText(/Repeats on each study day at your study time/)).toBeVisible();
-  await page.getByLabel('Preferred study time (24-hour, optional)', { exact: true }).fill('19:30');
+  await page.getByLabel('Study time', { exact: true }).fill('19:30');
   await page.getByRole('button', { name: 'Save study plan', exact: true }).click();
   await expect(
     row(page).getByRole('button', { name: 'Study reminder at 7:30 PM. Change it', exact: true }),

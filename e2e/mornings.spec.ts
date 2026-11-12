@@ -72,7 +72,7 @@ test('the anchor is set in Programs, counting earlier mornings only when asked',
     route: '/programs',
   });
   await page.getByRole('button', { name: `Configure ${ROW}`, exact: true }).click();
-  const field = page.getByLabel('Up by · morning anchor (24-hour, optional)', { exact: true });
+  const field = page.getByLabel('Up by · morning anchor', { exact: true });
   await expect(field).toHaveValue('');
   await expect(
     page.getByRole('switch', { name: 'Private, hidden from the Home Screen widget', exact: true }),
@@ -112,7 +112,7 @@ test('the anchor is set in Programs, counting earlier mornings only when asked',
   // A later change applies from today and leaves the first entry as it was.
   await page.goto('/programs');
   await page.getByRole('button', { name: `Configure ${ROW}`, exact: true }).click();
-  await expect(field).toHaveValue('07:10');
+  await expect(field).toHaveValue('7:10 AM');
   await expect(page.getByRole('switch', { name: /^Count mornings since/ })).toHaveCount(0);
   await field.fill('07:00');
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
@@ -130,7 +130,7 @@ test('clearing the time asks first, since it ends the anchor and its history', a
     route: '/programs',
   });
   await page.getByRole('button', { name: `Configure ${ROW}`, exact: true }).click();
-  await page.getByLabel('Up by · morning anchor (24-hour, optional)', { exact: true }).fill('');
+  await page.getByLabel('Up by · morning anchor', { exact: true }).fill('');
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   await expect(
     page.getByRole('alert').getByText(/ends the morning anchor and its history/),
@@ -156,7 +156,7 @@ test('without the offer, the anchor starts today and earlier ticks are not count
   });
   await page.getByRole('button', { name: `Configure ${ROW}`, exact: true }).click();
   await page
-    .getByLabel('Up by · morning anchor (24-hour, optional)', { exact: true })
+    .getByLabel('Up by · morning anchor', { exact: true })
     .fill('07:10');
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   expect((await saved(page)).programs[0].routines[0].anchor).toEqual({
@@ -233,7 +233,7 @@ test('I was up at corrects a forgotten tick the same day, marked corrected on Pr
   await row(page)
     .getByRole('button', { name: `Show details for ${ROW}`, exact: true })
     .click();
-  const field = page.getByLabel('I was up at (24-hour)', { exact: true });
+  const field = page.getByLabel('I was up at', { exact: true });
   // Only a time before the tick is taken, said beside the field.
   await field.fill('09:45');
   await page.getByRole('button', { name: 'Save the time you were up', exact: true }).click();

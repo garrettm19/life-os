@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { correctMorning } from '../domain/anchor';
 import { withDay } from '../domain/data';
-import { Block, clock, displayTime, parseTime } from '../domain/model';
+import { Block, displayTime, parseTime, timeInput } from '../domain/model';
 import { useApp } from '../state/app-state';
-import { Button, Field, styles } from './components';
+import { Button, TimeField, styles } from './components';
 import { LinkButton } from './controls';
 import { palette, type } from './theme';
 
@@ -15,7 +15,7 @@ import { palette, type } from './theme';
  */
 export function MorningCorrection({ block, date }: { block: Block; date: string }) {
   const { state, change } = useApp();
-  const [value, setValue] = useState(block.upAt === undefined ? '' : clock(block.upAt));
+  const [value, setValue] = useState(block.upAt === undefined ? '' : timeInput(block.upAt));
   const [error, setError] = useState<string | null>(null);
   const save = async (upAt: number | null) => {
     try {
@@ -36,15 +36,13 @@ export function MorningCorrection({ block, date }: { block: Block; date: string 
           ? 'Forgot to tick? Say when you were up. It counts in place of the tick time.'
           : `Counted as up at ${displayTime(block.upAt)}, marked corrected on Progress.`}
       </Text>
-      <Field
-        label="I was up at (24-hour)"
+      <TimeField
+        label="I was up at"
         value={value}
         onChange={(v) => {
           setValue(v);
           setError(null);
         }}
-        placeholder="07:05"
-        time
       />
       {!!error && (
         // A form note, never the danger color: nothing about the anchor is shown in red.

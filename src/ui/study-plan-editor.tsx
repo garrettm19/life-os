@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { StudyPlan, clock, parseTime } from '../domain/model';
+import { StudyPlan, parseTime, timeInput } from '../domain/model';
 import { DSA_STUDY, copyStudyPlan, planMinutes, saveStudyPlan } from '../domain/study';
 import { routineOf } from '../domain/workouts';
 import { useApp } from '../state/app-state';
-import { Button, Field, Sheet, styles } from './components';
+import { Button, Field, Sheet, TimeField, styles } from './components';
 import { newId } from './ids';
 import { linksText, parseLinks } from './links';
 import { ReminderDraft, ReminderSettings } from './study-reminders';
@@ -45,13 +45,13 @@ function Editor({
 }) {
   const { change } = useApp();
   const [stages, setStages] = useState<StageDraft[]>(() => drafts(plan));
-  const [time, setTime] = useState(plan.at === null ? '' : clock(plan.at));
+  const [time, setTime] = useState(plan.at === null ? '' : timeInput(plan.at));
   const [cue, setCue] = useState(plan.cue ?? '');
   const [reminders, setReminders] = useState<ReminderDraft>({
     start: plan.reminders.start,
     evening: plan.reminders.evening !== null,
     // No hour is suggested: the user chooses it.
-    eveningText: plan.reminders.evening === null ? '' : clock(plan.reminders.evening),
+    eveningText: plan.reminders.evening === null ? '' : timeInput(plan.reminders.evening),
     stageEnd: plan.reminders.stageEnd,
   });
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,7 @@ function Editor({
       try {
         evening = parseTime(reminders.eveningText);
       } catch {
-        throw new Error('Enter the evening reminder time in 24-hour form (HH:MM).');
+        throw new Error('Enter the evening reminder time, for example 8:30 PM.');
       }
     }
     if (cue.trim().length > 80) throw new Error('Keep the starting cue under 80 characters.');
@@ -172,15 +172,14 @@ function Editor({
           </Text>
         }
       />
-      <Field
-        label="Preferred study time (24-hour, optional)"
+      <TimeField
+        label="Study time"
         value={time}
         onChange={(v) => {
           setTime(v);
           setError(null);
         }}
-        placeholder="HH:MM"
-        time
+        optional
       />
       <ReminderSettings
         value={reminders}

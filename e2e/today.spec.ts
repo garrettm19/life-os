@@ -191,7 +191,7 @@ test('a checklist item edits without a start time, and saving it clears a stored
     .getByRole('button', { name: /^Job search(\.|$)/ })
     .click({ delay: 900 });
   await expect(page.getByLabel('Block name', { exact: true })).toHaveValue('Job search');
-  await expect(page.getByLabel('Start time (24-hour, blank = unscheduled)')).toHaveCount(0);
+  await expect(page.getByLabel('Start time')).toHaveCount(0);
   await expect(page.getByLabel('Fixed time', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save block', exact: true }).click();
   await expect(page.getByLabel('Block name', { exact: true })).toHaveCount(0);

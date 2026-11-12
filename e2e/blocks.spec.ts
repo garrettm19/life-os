@@ -46,14 +46,20 @@ test('manual conflicting time is rejected and a valid task remains editable', as
   await openMore(page);
   await page.getByRole('button', { name: 'Add block', exact: true }).click();
   await page.getByLabel('Block name', { exact: true }).fill('Example focus task');
-  await page.getByLabel('Start time (24-hour, blank = unscheduled)').fill('10:30');
+  await page.getByLabel('Start time').fill('10:30');
   await page.getByRole('button', { name: 'Save block', exact: true }).click();
   await expect(
     page.getByText('That slot overlaps another block. Choose a free time.'),
   ).toBeVisible();
-  await page.getByLabel('Start time (24-hour, blank = unscheduled)').fill('15:00');
+  // A 12-hour entry is read back under the field before Save, so a wrong AM or PM shows.
+  await page.getByLabel('Start time').fill('3pm');
+  await expect(page.getByText('Reads as 3:00 PM', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Save block', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit Example focus task' })).toBeVisible();
+  // Editing prefills the 12-hour form the time is shown in.
+  await page.getByRole('button', { name: 'Edit Example focus task' }).click();
+  await expect(page.getByLabel('Start time')).toHaveValue('3:00 PM');
+  await page.getByRole('button', { name: 'Save block', exact: true }).click();
   await page.getByRole('link', { name: 'Week', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible();
   await page.screenshot({ path: 'test-results/blocks-week.png' });

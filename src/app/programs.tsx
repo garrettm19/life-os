@@ -9,7 +9,7 @@ import {
   IntervalRoutine,
   Program,
   Routine,
-  clock,
+  timeInput,
   displayDate,
   displayTime,
   localDate,
@@ -26,7 +26,16 @@ import {
   upsertProgram,
   upsertRoutine,
 } from '../domain/routines';
-import { Button, Chip, Field, Page, SectionLabel, Sheet, styles } from '../ui/components';
+import {
+  Button,
+  Chip,
+  Field,
+  Page,
+  SectionLabel,
+  Sheet,
+  TimeField,
+  styles,
+} from '../ui/components';
 import { LinkButton, Segmented, Weekdays } from '../ui/controls';
 import { RoutineRow, routineKind } from '../ui/routine-row';
 import { ChoiceRow, Group, IconTile, SearchField, Toggle } from '../ui/list';
@@ -121,16 +130,16 @@ export default function ProgramsScreen() {
     setRoutineName(routine.title);
     setGroup(program.group);
     setDuration(String(routine.duration ?? ''));
-    setStart(routine.preferredStart === null ? '' : clock(routine.preferredStart));
-    setThursday(routine.thursdayStart == null ? '' : clock(routine.thursdayStart));
-    setEarliest(routine.windowStart == null ? '' : clock(routine.windowStart));
-    setLatest(routine.windowEnd == null ? '' : clock(routine.windowEnd));
+    setStart(routine.preferredStart === null ? '' : timeInput(routine.preferredStart));
+    setThursday(routine.thursdayStart == null ? '' : timeInput(routine.thursdayStart));
+    setEarliest(routine.windowStart == null ? '' : timeInput(routine.windowStart));
+    setLatest(routine.windowEnd == null ? '' : timeInput(routine.windowEnd));
     setSteps(routine.steps.join('\n'));
     setDays(routine.weekdays);
     setEveryWeeks(String(routine.repeat?.everyWeeks ?? 1));
     setFollows(routine.follows ?? []);
     setOptional(!!routine.optional);
-    setUpBy(routine.anchor ? clock(currentUpBy(routine)!) : '');
+    setUpBy(routine.anchor ? timeInput(currentUpBy(routine)!) : '');
     setCountEarlier(false);
     setActivityChoices((routine.activities ?? []).join('\n'));
     setLinksText(formatLinks(routine.links ?? []));
@@ -871,13 +880,12 @@ export default function ProgramsScreen() {
             />
             {anchorable && (
               <View style={{ gap: 8 }}>
-                <Field
-                  label="Up by · morning anchor (24-hour, optional)"
+                <TimeField
+                  label="Up by · morning anchor"
                   value={upBy}
                   onChange={setUpBy}
-                  placeholder="07:10"
-                  time
-                  hint="Your own time. On time means ticked within 15 minutes of it."
+                  optional
+                  hint="Your own time, for example 7:10 AM. On time means ticked within 15 minutes of it."
                 />
                 {earlierTick && upByMinutes !== null && (
                   <Toggle
@@ -1089,33 +1097,25 @@ export default function ProgramsScreen() {
                 />
                 {scheduleOpen && (
                   <>
-                    <Field
-                      label="Preferred start (24-hour, optional)"
-                      value={start}
-                      onChange={setStart}
-                      placeholder="14:30"
-                      time
-                    />
-                    <Field
-                      label="Thursday start override (optional)"
+                    <TimeField label="Preferred start" value={start} onChange={setStart} optional />
+                    <TimeField
+                      label="Thursday start override"
                       value={thursday}
                       onChange={setThursday}
-                      placeholder="14:00"
-                      time
+                      optional
                     />
-                    <Field
-                      label="Earliest start (optional)"
+                    <TimeField
+                      label="Earliest start"
                       value={earliest}
                       onChange={setEarliest}
-                      placeholder="18:00"
-                      time
+                      optional
                     />
-                    <Field
-                      label="Latest finish (optional, 24:00 = midnight)"
+                    <TimeField
+                      label="Latest finish"
                       value={latest}
                       onChange={setLatest}
-                      placeholder="23:30"
-                      time
+                      optional
+                      midnight
                     />
                     <Toggle
                       title="Fixed time"

@@ -6,7 +6,7 @@ import {
   requestNotificationPermission,
 } from '../data/notifier';
 import { REMINDER_DAYS } from '../domain/reminders';
-import { Button, Field, styles } from './components';
+import { Button, TimeField, styles } from './components';
 import { Toggle } from './list';
 
 export type ReminderDraft = {
@@ -84,12 +84,10 @@ export function ReminderSettings({
         </Text>
       )}
       {value.evening && (
-        <Field
-          label="Evening reminder time (24-hour)"
+        <TimeField
+          label="Evening reminder time"
           value={value.eveningText}
           onChange={(eveningText) => onChange({ ...value, eveningText })}
-          placeholder="HH:MM"
-          time
         />
       )}
       <Toggle

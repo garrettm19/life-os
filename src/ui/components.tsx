@@ -30,7 +30,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { useApp, useBusy } from '../state/app-state';
 import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
-import { localDate } from '../domain/model';
+import { displayTime, localDate, readTime } from '../domain/model';
 import { startTracking } from '../domain/start-tracking';
 import { announce, useAnnouncement } from './announce';
 import { drive, fadeUp, motion, PressableScale } from './motion';
@@ -217,7 +217,7 @@ export function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   numeric?: boolean;
-  /** 24-hour HH:MM entry: the iOS keyboard needs the colon. */
+  /** A time of day: the numbers-and-punctuation keyboard, with letters a tap away for AM or PM. */
   time?: boolean;
   /** A title the user reads back later, so it starts with a capital. */
   name?: boolean;
@@ -288,6 +288,50 @@ export function Field({
       {/* A plain-text hint needs its own Text: native refuses a bare string inside a View. */}
       {typeof hint === 'string' ? <Text style={type.caption}>{hint}</Text> : hint}
     </View>
+  );
+}
+
+/**
+ * A time of day typed as 7:30 AM, 7pm or 19:30. A line under it says how the entry was read, so a
+ * wrong AM or PM shows before Save. `midnight`: 12 AM and 24:00 mean the end of the day.
+ */
+export function TimeField({
+  label,
+  value,
+  onChange,
+  optional = false,
+  midnight = false,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  /** Blank is a valid answer. */
+  optional?: boolean;
+  midnight?: boolean;
+  /** A line under the echo. */
+  hint?: string;
+}) {
+  const minutes = readTime(value, midnight);
+  const read =
+    minutes === null ? null : displayTime(minutes) + (minutes === 1440 ? ', midnight' : '');
+  const same =
+    read !== null &&
+    read.toLowerCase().replace(/\s/g, '') === value.trim().toLowerCase().replace(/\s/g, '');
+  const echo = value.trim() && read && !same ? `Reads as ${read}` : null;
+  const lines = [
+    echo,
+    hint ?? (value.trim() ? null : `For example 7:30 AM${optional ? ', or blank' : ''}`),
+  ].filter(Boolean);
+  return (
+    <Field
+      label={label}
+      value={value}
+      onChange={onChange}
+      placeholder={optional ? 'Optional' : undefined}
+      time
+      hint={lines.length ? lines.join('\n') : undefined}
+    />
   );
 }
 

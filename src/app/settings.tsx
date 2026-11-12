@@ -14,7 +14,14 @@ import {
 import { MAX_VIOLATIONS } from '../domain/records';
 import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
-import { Goal, Settings, clock, emptyState, parseTime, validateSettings } from '../domain/model';
+import {
+  Goal,
+  Settings,
+  emptyState,
+  parseTime,
+  timeInput,
+  validateSettings,
+} from '../domain/model';
 import { GoalEditor } from '../ui/goal-editor';
 import { addGoal } from '../domain/goals';
 import { pickSetup } from '../data/pick-setup';
@@ -25,6 +32,7 @@ import {
   Sheet,
   StartTrackingSheet,
   TRACKING_STARTED,
+  TimeField,
   styles,
 } from '../ui/components';
 import { Disclosure } from '../ui/controls';
@@ -57,7 +65,7 @@ const fields: {
     type: 'time',
     hint: 'Not a goal. Your morning time lives on your anchor routine.',
   },
-  { key: 'bedtime', label: 'Bedtime (24:00 = midnight)', type: 'time' },
+  { key: 'bedtime', label: 'Bedtime', type: 'time' },
   {
     key: 'workStart',
     label: 'Morning work starts',
@@ -144,7 +152,7 @@ export default function SettingsScreen() {
         state.settings[f.key] === null
           ? ''
           : f.type === 'time'
-            ? clock(state.settings[f.key]!)
+            ? timeInput(state.settings[f.key]!)
             : String(state.settings[f.key]),
       ]),
     ),
@@ -321,18 +329,29 @@ export default function SettingsScreen() {
             Times use the phone’s timezone. Blank means unknown. Work reserves time; personal tasks
             use the free slots. Weekend work can be added by hand.
           </Text>
-          {fields.map((f) => (
-            <Field
-              key={f.key}
-              label={f.label + (f.optional ? ' · optional' : '')}
-              value={values[f.key] ?? ''}
-              onChange={(v) => setValues({ ...edits, [f.key]: v })}
-              numeric={f.type === 'duration'}
-              time={f.type === 'time'}
-              placeholder={f.type === 'time' ? '14:30' : 'Minutes'}
-              hint={f.hint}
-            />
-          ))}
+          {fields.map((f) =>
+            f.type === 'time' ? (
+              <TimeField
+                key={f.key}
+                label={f.label}
+                value={values[f.key] ?? ''}
+                onChange={(v) => setValues({ ...edits, [f.key]: v })}
+                optional={f.optional}
+                midnight={f.key === 'bedtime'}
+                hint={f.hint}
+              />
+            ) : (
+              <Field
+                key={f.key}
+                label={f.label + (f.optional ? ' · optional' : '')}
+                value={values[f.key] ?? ''}
+                onChange={(v) => setValues({ ...edits, [f.key]: v })}
+                numeric
+                placeholder="Minutes"
+                hint={f.hint}
+              />
+            ),
+          )}
           {scheduleError && (
             <Text accessibilityRole="alert" style={styles.alert}>
               {scheduleError}
