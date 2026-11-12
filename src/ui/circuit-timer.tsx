@@ -35,7 +35,7 @@ import { Block, CueMode, IntervalRoutine, displayDate } from '../domain/model';
 import { setStatus } from '../domain/planner';
 import { routineOf } from '../domain/workouts';
 import { withDay } from '../domain/data';
-import { useApp } from '../state/app-state';
+import { useApp, useBusy } from '../state/app-state';
 import { clockFontSize, clockLineHeight } from './clock-size';
 import { Button, Chip, styles } from './components';
 import { ConfirmRemove } from './confirm-remove';
@@ -233,7 +233,8 @@ function Runner({
   onMove?: () => void;
   play: (cue: Cue) => void;
 }) {
-  const { state, busy, change } = useApp();
+  const { state, change } = useApp();
+  const busy = useBusy();
   const mode = state.settings.timerCue ?? 'voice';
   const [run, setRun] = useState<TimerRun>(readyRun);
   const [now, setNow] = useState(() => Date.now());

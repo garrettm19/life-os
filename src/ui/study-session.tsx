@@ -30,7 +30,7 @@ import {
   restoreStudyRun,
   toRecord,
 } from '../domain/study';
-import { useApp } from '../state/app-state';
+import { useApp, useBusy } from '../state/app-state';
 import { announce } from './announce';
 import { Button, styles } from './components';
 import { ConfirmRemove } from './confirm-remove';
@@ -148,7 +148,8 @@ function Runner({
   close: () => void;
   onEditPlan: (routineId: string) => void;
 }) {
-  const { state, change, busy } = useApp();
+  const { state, change } = useApp();
+  const busy = useBusy();
   const plan = studyPlanFor(state, block.routineId)!;
   const [run, setRun] = useState<StudyRun | null>(null);
   const [checked, setChecked] = useState(false);
