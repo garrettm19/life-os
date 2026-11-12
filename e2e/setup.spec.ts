@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { trainingState } from '../src/test-support/fixtures';
 import { demoState } from '../src/domain/demo';
 import { defaultTradingProfile } from '../src/domain/trading';
-import { chooseSetup, importSetup } from './support/files';
+import { chooseSetup, importSetup, loadSetupFromToday } from './support/files';
 import { saved, seed } from './support/storage';
 
 // Setup import from Settings, with synthetic setup files only.
@@ -219,12 +219,27 @@ test('local setup import keeps every program and allows routine configuration', 
   await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
 });
 
-test('a first-run import shows its result in place, folds the import and leads to Today', async ({
+test('Load my setup on the empty Today opens Files and previews the setup in place', async ({
   page,
 }) => {
   await page.clock.install({ time: new Date(2026, 10, 9, 9) });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Load my setup', exact: true }).click();
+  // Nothing to plan yet: the welcome card is the one next step, with no More for today under it.
+  await expect(page.getByRole('button', { name: /^More for today/ })).toHaveCount(0);
+  await loadSetupFromToday(page, setup);
+  await expect(page.getByText('Import this setup?', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Import this setup', exact: true }).click();
+  // Two taps from an empty device: the plan is on Today, with no trip to Settings.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('welcome')).toHaveCount(0);
+  expect((await saved(page)).programs).toHaveLength(1);
+});
+
+test('a first-run import shows its result in place, folds the import and leads to Today', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date(2026, 10, 9, 9) });
+  await page.goto('/settings');
   await chooseSetup(page, setup);
   await page.getByRole('button', { name: 'Import this setup', exact: true }).click();
   const result = page.getByText('This device now has 1 program and 1 routine.', { exact: true });

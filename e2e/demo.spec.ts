@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date(2026, 10, 9, 9) });
 });
 
-test('the empty app offers my backup, my setup or the demo; Load my setup opens the import', async ({
+test('the empty app offers my backup, my setup or the demo; Load my setup opens Files', async ({
   page,
 }) => {
   await page.goto('/');
@@ -38,12 +38,15 @@ test('the empty app offers my backup, my setup or the demo; Load my setup opens 
   expect(await fill('Restore my backup')).toBe('rgb(245, 241, 235)');
   expect(await fill('Load my setup')).toBe('rgba(0, 0, 0, 0)');
   expect(await fill('Explore demo')).toBe('rgba(0, 0, 0, 0)');
+  // Load my setup opens Files at once; choosing nothing saves nothing.
+  const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Load my setup', exact: true }).click();
-  // The import leads Settings on an empty device: its button is on screen without scrolling.
+  await chooser;
+  // On an empty device the import leads Settings: its button is on screen without scrolling.
+  await page.goto('/settings');
   await expect(
     page.getByRole('button', { name: 'Choose setup file', exact: true }),
   ).toBeInViewport();
-  // Opening the import saves nothing.
   expect((await saved(page))?.programs ?? []).toEqual([]);
 });
 

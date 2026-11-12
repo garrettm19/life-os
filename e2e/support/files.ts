@@ -24,6 +24,11 @@ export function chooseSetup(page: Page, setup: unknown, name = 'synthetic-setup.
   return chooseJson(page, 'Choose setup file', name, JSON.stringify(setup));
 }
 
+/** On the empty Today, taps Load my setup and picks `setup`, which opens its preview in place. */
+export function loadSetupFromToday(page: Page, setup: unknown, name = 'synthetic-setup.json') {
+  return chooseJson(page, 'Load my setup', name, JSON.stringify(setup));
+}
+
 /** On a device with no programs yet, imports `setup` from Settings as its preview shows it. */
 export async function importSetup(page: Page, setup: unknown, name: string) {
   await page.goto('/settings');

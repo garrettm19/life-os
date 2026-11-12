@@ -47,6 +47,7 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { useSetupImport } from '../ui/setup-import';
 import { HousekeepingLine } from '../ui/housekeeping-line';
 import { MonthCalendar } from '../ui/dot-calendar';
 import { dismissFinish, finishDismissed } from '../ui/finish-yesterday';
@@ -179,6 +180,9 @@ export default function TodayScreen() {
   const blank = isBlank(state);
   // Restore my backup on the empty Today: after a reinstall or on a new phone, the first thing.
   const restore = useRestore();
+  // Load my setup opens Files here and previews the file in place, as Settings does.
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const setup = useSetupImport({ onError: setSetupError, onImported: () => setSetupError(null) });
   const today = localDate(now);
   const setDate = (next: string) => setSelection({ base, date: next });
   useEffect(() => {
@@ -798,9 +802,9 @@ export default function TodayScreen() {
               Restore your backup, start with your setup, or explore.
             </Text>
           </View>
-          {restore.error && (
+          {(restore.error ?? setupError) && (
             <Text accessibilityRole="alert" style={styles.alert}>
-              {restore.error}
+              {restore.error ?? setupError}
             </Text>
           )}
           {/* Your own backup comes first; a setup and the fictional demo are the other choices. */}
@@ -820,8 +824,8 @@ export default function TodayScreen() {
               icon="doc"
               tone="sky"
               title="Load my setup"
-              detail="Import a setup file in Settings"
-              onPress={() => router.push('/settings')}
+              detail="Choose your setup file and see what it adds first"
+              onPress={() => void setup.choose()}
             />
             {blank && (
               <>
@@ -839,6 +843,7 @@ export default function TodayScreen() {
         </View>
       )}
       <RestoreSheet restore={restore} />
+      {setup.sheet}
       {/* A rest day is part of today's plan: one line says why no workout is listed and what is
           next, so the list still starts near the top. Once the day is cleared, Train anyway waits
           in the fold, so a finished day offers no more work above it. A line too long to share
@@ -954,135 +959,138 @@ export default function TodayScreen() {
         )}
       {ready && isToday && <HousekeepingLine now={now} />}
       {/* The list comes first; everything else waits here, one tap away. */}
-      <Disclosure title={moreTitle} summary={moreSummary}>
-        <View style={{ gap: 16 }}>
-          {/* The date the header leaves out, other days, and the Day Clear streak's details. */}
-          <View style={[styles.spread, { rowGap: 0 }]}>
-            <DayNav
-              date={date}
-              isToday={isToday}
-              onDate={setDate}
-              onToday={() => setDate(localDate(now))}
-            />
-            {/* On today the hero card above holds the streak and opens its details. */}
-            {!isToday && (
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={streakDetailsLabel(streak)}
-                onPress={() => setStreakOpen(true)}
-                style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text
-                  style={{
-                    ...type.meta,
-                    color: streak.current > 0 ? palette.label : palette.label3,
-                  }}>
-                  {streakLine(streak)}
-                </Text>
-              </PressableScale>
+      {/* With no program there is nothing to plan or log yet: the welcome card is the next step. */}
+      {(state.programs.length > 0 || !isToday || !ready) && (
+        <Disclosure title={moreTitle} summary={moreSummary}>
+          <View style={{ gap: 16 }}>
+            {/* The date the header leaves out, other days, and the Day Clear streak's details. */}
+            <View style={[styles.spread, { rowGap: 0 }]}>
+              <DayNav
+                date={date}
+                isToday={isToday}
+                onDate={setDate}
+                onToday={() => setDate(localDate(now))}
+              />
+              {/* On today the hero card above holds the streak and opens its details. */}
+              {!isToday && (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={streakDetailsLabel(streak)}
+                  onPress={() => setStreakOpen(true)}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text
+                    style={{
+                      ...type.meta,
+                      color: streak.current > 0 ? palette.label : palette.label3,
+                    }}>
+                    {streakLine(streak)}
+                  </Text>
+                </PressableScale>
+              )}
+            </View>
+            {isToday && (
+              <TodayFocus
+                today={today}
+                canOpen={(b) => !!kindOf(b) && kindOf(b) !== 'study'}
+                onOpen={(b) => openRecord(b, kindOf(b)!)}
+              />
             )}
-          </View>
-          {isToday && (
-            <TodayFocus
-              today={today}
-              canOpen={(b) => !!kindOf(b) && kindOf(b) !== 'study'}
-              onOpen={(b) => openRecord(b, kindOf(b)!)}
-            />
-          )}
-          {priority && <MoneyPriorityCard review={priority} />}
-          {isToday && <TomorrowPreview now={now} />}
-          {/* The log records what happened; it is not part of planning the day. */}
-          <View style={styles.section}>
-            <View style={styles.spread}>
-              <SectionLabel
-                title="Log"
-                count={entries.length ? String(entries.length) : undefined}
-              />
-              <Button
-                secondary
-                small
-                title="Add"
-                label={isToday ? "Add to today's log" : "Add to this day's log"}
-                onPress={() => setLogTarget({ date })}
-              />
-            </View>
-            {entries.map((entry) => (
-              <PressableScale
-                key={entry.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Edit log entry: ${entry.text}`}
-                onPress={() => setLogTarget({ date, entry })}
-                style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 6, gap: 2 }}>
-                <Text style={styles.body} numberOfLines={3}>
-                  {entry.text}
-                </Text>
-                <Text style={{ ...type.meta }}>
-                  {doneAt(entry.at) ?? ''}
-                  {entry.category ? ` · ${CATEGORY_LABELS[entry.category]}` : ''}
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
-          <View style={{ gap: 6, marginTop: 4 }}>
-            <Text style={{ ...type.meta, color: palette.label2 }}>Plan this day</Text>
-            <View style={[styles.row, { columnGap: 4 }]}>
-              <Button secondary small title="Add block" onPress={() => open()} />
-              {state.programs.length > 0 && (
-                <Button
-                  quiet
-                  small
-                  title="Change the order"
-                  label="Change the order of the day"
-                  onPress={() => setOrderOpen(true)}
+            {priority && <MoneyPriorityCard review={priority} />}
+            {isToday && <TomorrowPreview now={now} />}
+            {/* The log records what happened; it is not part of planning the day. */}
+            <View style={styles.section}>
+              <View style={styles.spread}>
+                <SectionLabel
+                  title="Log"
+                  count={entries.length ? String(entries.length) : undefined}
                 />
-              )}
-              {/* On a cleared rest day, training anyway is still one tap, here. */}
-              {progress.cleared && resting.map((p) => trainAnyway(p, true))}
-              {/* Generating or replanning a past day would rewrite recorded history. */}
-              {date >= today && (
-                <>
+                <Button
+                  secondary
+                  small
+                  title="Add"
+                  label={isToday ? "Add to today's log" : "Add to this day's log"}
+                  onPress={() => setLogTarget({ date })}
+                />
+              </View>
+              {entries.map((entry) => (
+                <PressableScale
+                  key={entry.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit log entry: ${entry.text}`}
+                  onPress={() => setLogTarget({ date, entry })}
+                  style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 6, gap: 2 }}>
+                  <Text style={styles.body} numberOfLines={3}>
+                    {entry.text}
+                  </Text>
+                  <Text style={{ ...type.meta }}>
+                    {doneAt(entry.at) ?? ''}
+                    {entry.category ? ` · ${CATEGORY_LABELS[entry.category]}` : ''}
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
+            <View style={{ gap: 6, marginTop: 4 }}>
+              <Text style={{ ...type.meta, color: palette.label2 }}>Plan this day</Text>
+              <View style={[styles.row, { columnGap: 4 }]}>
+                <Button secondary small title="Add block" onPress={() => open()} />
+                {state.programs.length > 0 && (
                   <Button
                     quiet
                     small
-                    title="Generate day"
-                    onPress={() =>
-                      void change((s) =>
-                        withDay(
-                          s,
-                          generateDay(
-                            date,
-                            s.settings,
-                            s.programs,
-                            s.days[date],
-                            undefined,
-                            planKeep(s, date),
-                          ),
-                        ),
-                      )
-                    }
+                    title="Change the order"
+                    label="Change the order of the day"
+                    onPress={() => setOrderOpen(true)}
                   />
-                  <Button
-                    quiet
-                    small
-                    title="Replan"
-                    onPress={() =>
-                      void change((s) =>
-                        withDay(
-                          s,
-                          replanDay(
-                            s.days[date] ?? day,
-                            s.settings,
-                            isToday ? minute : s.settings.wake,
+                )}
+                {/* On a cleared rest day, training anyway is still one tap, here. */}
+                {progress.cleared && resting.map((p) => trainAnyway(p, true))}
+                {/* Generating or replanning a past day would rewrite recorded history. */}
+                {date >= today && (
+                  <>
+                    <Button
+                      quiet
+                      small
+                      title="Generate day"
+                      onPress={() =>
+                        void change((s) =>
+                          withDay(
+                            s,
+                            generateDay(
+                              date,
+                              s.settings,
+                              s.programs,
+                              s.days[date],
+                              undefined,
+                              planKeep(s, date),
+                            ),
                           ),
-                        ),
-                      )
-                    }
-                  />
-                </>
-              )}
+                        )
+                      }
+                    />
+                    <Button
+                      quiet
+                      small
+                      title="Replan"
+                      onPress={() =>
+                        void change((s) =>
+                          withDay(
+                            s,
+                            replanDay(
+                              s.days[date] ?? day,
+                              s.settings,
+                              isToday ? minute : s.settings.wake,
+                            ),
+                          ),
+                        )
+                      }
+                    />
+                  </>
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </Disclosure>
+        </Disclosure>
+      )}
       <Sheet
         title={
           !editing?.title
