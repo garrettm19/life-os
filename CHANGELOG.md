@@ -4,7 +4,15 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- Finish yesterday: while yesterday is still open, one line under Today's hero says how much is left and opens that day, where ticking the rest keeps the Day Clear run. An x hides it; only yesterday is offered, never an older day or the demo.
+- The Day Clear streak details show a month calendar: cleared days as seals, protected days ringed, today ringed in orange, and a line with the days cleared that month. Arrows go back month by month, and tapping a day opens it.
+
 ### Changed
+
+- The first clear after a run ended says Back on track in the celebration, and with no run going and nothing cleared this week Today's hero names the next step ("Clear today to start a new run").
+- The streak details no longer list the last 14 days as rows, open with a four-line explainer (now behind About streaks) or repeat the best run in words.
 
 - Deleting a saved record (a log entry, weight, money review, skill checkpoint or weekly review) asks once with a small card first, so nothing disappears on one tap. The card comes fully into view with focus on its line, Save steps aside while it is open, and Keep it returns to Delete. Removing a recorded study session or circuit uses the same card.
 - Deleting a weight or money review that completed its objective names the objective and its day, says when that day would no longer count as cleared, and for a past day recommends keeping the Done.

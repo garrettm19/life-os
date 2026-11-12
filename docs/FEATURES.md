@@ -64,10 +64,12 @@ A day is **cleared** when at least one required objective is done, every other r
 | Open         | Something is due and the day is not cleared                       |
 
 - **Day Clear streak.** A cleared day adds one, a protected day holds the run, and Nothing due and Not recorded change nothing. An open day that can no longer be finished ends the run.
+- **Finish yesterday.** While yesterday is saved, open and not protected, one line under Today's hero says how much is still open there and opens it, where ticks and Skip work as on Today. Clearing it keeps the run with no other step, since the streak is read from the days. Only yesterday is offered, never an older day or the demo, and an x hides the line until the app is next launched. On yesterday's page the morning anchor can be corrected too.
+- **Month.** The streak details show a month of days, Monday first: a cleared day is a seal, a protected day a ringed date, and today is ringed. Every other day shows its date faintly, never as a miss. One line counts the days cleared in the month; arrows go back to the first recorded month, and tapping a day opens it.
 - **Study streak.** Stricter and separate: a scheduled study day that was skipped or left open ends it. It is judged from the schedule the plan recorded for that date, never from today's settings.
 - **Trading clean-session streak.** Counted from reviewed sessions only, never from profit.
 - **Morning anchor.** One plain checklist routine can carry an "Up by" time. Progress shows how often it was ticked on time over the last seven mornings. The app never tracks or infers sleep.
-- **Celebration.** One short celebration plays when a save on Today clears the day. There are no points, badges or leaderboards.
+- **Celebration.** One short celebration plays when a save on Today clears the day. It says what the run grew from, or Back on track for the first clear after a run ended. There are no points, badges or leaderboards.
 
 Streaks and progress moments are derived from records on every read, so Undo and edits to past days recalculate them.
 

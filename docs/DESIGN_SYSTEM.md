@@ -82,6 +82,7 @@ Charts are drawn with views (`line-chart.tsx`, `bar-chart.tsx`, `habit-bars.tsx`
 - With fewer than two points a card shows its headline and one line, never an empty frame.
 - A tile's sparkline of totals leaves out the span still in progress, so it never ends on a dip early in the week; the tile gives that span so far in words instead, unless it is the whole figure.
 - The Day Clear and Study sparklines need three points: two are a comparison, and a streak's two would draw a broken run as a fall.
+- **Day calendars** (`DayGrid` in `study-calendar.tsx`; the Day Clear month in `dot-calendar.tsx`) are Monday-first grids whose days are each their whole column, 44 pt tall and at least 32 pt wide. Every state has a shape as well as a color, and a day that did not go well is never red: on the month, a cleared day is a Fern seal, a protected day a ringed date, today an Ember ring, and anything else its date in faint text. Each day is one VoiceOver button ("November 3, cleared").
 
 ## Motion
 
