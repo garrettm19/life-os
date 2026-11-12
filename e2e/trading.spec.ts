@@ -7,6 +7,7 @@ import { saveTradingReview } from '../src/domain/trading';
 import { endSession } from '../src/domain/trading-live';
 import { logTakenAttempt } from '../src/domain/trading-status';
 import { saved, savedSession as savedCandle, seed } from './support/storage';
+import { showPaused } from './support/programs';
 import {
   answerReview,
   begun,
@@ -507,6 +508,7 @@ test('a lost account set pauses live trading for 30 days, with no early resume',
   expect((await savedSession(page))!.lock!.mode).toBe('practice');
   // Programs refuses to resume the trading objective before then.
   await page.goto('/programs');
+  await showPaused(page);
   await page
     .getByRole('button', { name: 'Configure Follow my trading rules', exact: true })
     .click();

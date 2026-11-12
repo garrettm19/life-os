@@ -86,8 +86,11 @@ export function Disclosure({
   children,
   initiallyOpen = false,
   plain = false,
+  label,
 }: {
   title: string;
+  /** The name VoiceOver reads in place of the title, where several folds share one title. */
+  label?: string;
   /** A short note beside the title, e.g. a count. */
   summary?: string;
   children: ReactNode;
@@ -109,7 +112,7 @@ export function Disclosure({
       }>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${title}${summary ? `, ${summary}` : ''}. ${open ? 'Hide' : 'Show'}`}
+        accessibilityLabel={`${label ?? title}${summary ? `, ${summary}` : ''}. ${open ? 'Hide' : 'Show'}`}
         accessibilityState={{ expanded: open }}
         aria-expanded={open}
         onPress={() => setOpen(!open)}

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { demoState } from '../src/domain/demo';
 import { scanPage } from './support/layout-probe';
+import { showPaused } from './support/programs';
 import { showJourney } from './support/progress';
 import { saved, seed } from './support/storage';
 
@@ -78,17 +79,25 @@ test('Explore demo loads the fictional six weeks, labeled as a demo, on every sc
   await page.screenshot({ path: 'test-results/demo-full-today.png', fullPage: true });
   // Programs holds the wider life: every goal, and the paused trading practice and its cockpit.
   await page.getByRole('link', { name: 'Programs', exact: true }).click();
-  await page.getByRole('button', { name: /^Life goals/ }).click();
-  const goals = page.getByTestId('goal-map');
-  await expect(goals).toContainText('Close friends and a social life');
-  await expect(goals).toContainText('No scheduled objective');
-  await expect(goals).toContainText('Engineering skills · Career steps');
+  // Paused trading waits behind the Paused programs fold.
+  await expect(
+    page.getByRole('button', {
+      name: 'Open the trading cockpit for Follow my trading plan',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await showPaused(page);
   await expect(
     page.getByRole('button', {
       name: 'Open the trading cockpit for Follow my trading plan',
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole('button', { name: /^Life goals/ }).click();
+  const goals = page.getByTestId('goal-map');
+  await expect(goals).toContainText('Close friends and a social life');
+  await expect(goals).toContainText('No scheduled objective');
+  await expect(goals).toContainText('Engineering skills · Career steps');
   for (const [name, route] of [
     ['week', '/week'],
     ['programs', '/programs'],
@@ -123,8 +132,9 @@ test('Programs names each program as a heading, and the trading editor points to
   page,
 }) => {
   await seed(page, demoState(TODAY), { route: '/programs' });
+  await showPaused(page);
   // The headings rotor moves between programs and the group labels above them.
-  for (const title of ['Morning foundations', 'Career steps', 'Trading practice', 'Paused'])
+  for (const title of ['Morning foundations', 'Career steps', 'Trading practice'])
     await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'Configure Follow my trading plan', exact: true }).click();
   await expect(page.getByText(/Its rules and limits are on the Trading page\.$/)).toBeVisible();
