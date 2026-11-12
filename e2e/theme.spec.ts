@@ -304,7 +304,7 @@ test('a past day never opened reads in label3, which small text can read', async
     clock: new Date(2026, 10, 11, 9),
     route: '/week',
   });
-  const status = page.getByText('Not opened', { exact: true });
+  const status = page.getByText('Not recorded', { exact: true });
   await expect(status).toHaveCount(1);
   await expect(status).toHaveCSS('color', rgb(palette.label3));
 });
@@ -338,7 +338,7 @@ test('a plan set up mid-week reads the days before it as before you started, not
   const before = page.getByText('Before you started', { exact: true });
   await expect(before).toHaveCount(2);
   await expect(before.first()).toHaveCSS('color', rgb(palette.label3));
-  await expect(page.getByText('Not opened', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Not recorded', { exact: true })).toHaveCount(0);
 });
 
 test('at 320 pt the selected tab, the tile figures and the journey figures are never cut', async ({

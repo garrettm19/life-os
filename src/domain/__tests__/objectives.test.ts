@@ -603,7 +603,8 @@ test('ensure and generate keep protection and do not mark items done', () => {
 
 test('streak copy stays forward-looking after a break', () => {
   expect(streakCaption(13, 21)).toBe('13-day streak');
-  expect(streakCaption(0, 94)).toBe('New run started');
+  // No run is going: the caption says how to start one, never that one has started.
+  expect(streakCaption(0, 94)).toBe('Clear a day to start a new run');
   expect(streakCaption(0, 0)).toBe('No streak yet');
 });
 

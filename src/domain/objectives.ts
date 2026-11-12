@@ -295,7 +295,8 @@ export function streakHistory(
 
 export function streakCaption(current: number, best: number): string {
   if (current > 0) return current === 1 ? '1-day streak' : `${current}-day streak`;
-  if (best > 0) return 'New run started';
+  // No run is going: say how to start one, never claim one has started.
+  if (best > 0) return 'Clear a day to start a new run';
   return 'No streak yet';
 }
 

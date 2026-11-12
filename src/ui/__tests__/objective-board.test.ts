@@ -154,7 +154,7 @@ describe('the board on a day with skips', () => {
 describe('the streak details label', () => {
   it('reads one period between sentences and counts a single day as one day', () => {
     expect(streakDetailsLabel({ current: 0, best: 1 })).toBe(
-      'Streak details. New run started. Best 1 day.',
+      'Streak details. Clear a day to start a new run. Best 1 day.',
     );
     expect(streakDetailsLabel({ current: 1, best: 1 })).toBe(
       'Streak details. 1-day streak. Best 1 day.',
@@ -293,6 +293,12 @@ describe('a past day reads quieter than a win', () => {
       color: palette.label3,
       fontWeight: fonts.regular.fontWeight,
     });
+    // Under the Best label, its caption is the run alone, and Current names how to start a run
+    // only when none is going.
+    const words = tree!.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
+    expect(words).toContain('3 days');
+    expect(words.join(' | ')).not.toMatch(/Best ·|New run started/);
+    expect(words).toContain('1-day streak');
     expect(style('Cleared')).toMatchObject({ color: palette.done });
     expect(style('Cleared').fontWeight).not.toBe(fonts.regular.fontWeight);
   });

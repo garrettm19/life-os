@@ -1108,7 +1108,7 @@ export default function TodayScreen() {
           />
         )}
       </Sheet>
-      <Sheet title="Day clear streak" visible={streakOpen} close={() => setStreakOpen(false)}>
+      <Sheet title="Day Clear streak" visible={streakOpen} close={() => setStreakOpen(false)}>
         <StreakSheetBody
           streak={streak}
           protection={day.protection}

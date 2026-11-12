@@ -285,7 +285,7 @@ export function StreakSheetBody({
         <View style={{ flex: 1, padding: 16, gap: 4 }}>
           <Text style={styles.label}>Best</Text>
           <Text style={type.count}>{streak.best}</Text>
-          <Text style={styles.muted}>Best · {days(streak.best)}</Text>
+          <Text style={styles.muted}>{days(streak.best)}</Text>
         </View>
       </View>
       <Text style={styles.muted}>

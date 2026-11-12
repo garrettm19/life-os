@@ -20,7 +20,7 @@ import { fonts, palette, radius, type } from '../ui/theme';
 import { useToday } from '../ui/use-today';
 
 /**
- * The day's state: Cleared, Protected, Not opened or Before you started in words; a later day's
+ * The day's state: Cleared, Protected, Not recorded or Before you started in words; a later day's
  * planned count; else the done count ("5 of 7"), read with the one Day Cleared count so it matches
  * Today.
  */
@@ -35,7 +35,7 @@ function dayState(d: AgendaDay, today: string): DayState {
   // A day from before tracking started was never a day to open.
   if (d.beforeStart) return { kind: 'word', text: 'Before you started', color: palette.label3 };
   if (!d.saved && d.date < today)
-    return { kind: 'word', text: 'Not opened', color: palette.label3 };
+    return { kind: 'word', text: 'Not recorded', color: palette.label3 };
   const count = d.date > today ? d.planned : total;
   // Every objective skipped and nothing done: something was due, so not Nothing due.
   if (!count && d.outcome === 'open')

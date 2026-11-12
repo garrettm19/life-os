@@ -14,6 +14,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - The Day Clear streak tile on Progress shows the run and the best run, without a "−2 vs 4 weeks ago" change. Over a year, a tile with nothing recorded a year before shows its figure alone.
 - A study week with every day kept reads "Last week all 5 study days kept, up from 5 of 6", so a full week never reads like no change.
 - Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side.
+- One name per concept: Week says Not recorded for a day never opened, as Today and the streak details do; the streak details are titled Day Clear streak; with no run going they say "Clear a day to start a new run" instead of "New run started"; and the best run under Best reads "21 days".
 
 ### Fixed
 

@@ -294,7 +294,7 @@ test('the hero card opens the streak details; other days are in More for today',
     .getByTestId('today-hero')
     .getByRole('button', { name: /^Last 7 days: .*Streak details\.$/ })
     .click();
-  await expect(page.getByText('Day clear streak', { exact: true })).toBeVisible();
+  await expect(page.getByText('Day Clear streak', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close', exact: true }).last().click();
   await openMore(page);
   await expect(page.getByRole('button', { name: 'Mon, Nov 9, today', exact: true })).toBeVisible();
