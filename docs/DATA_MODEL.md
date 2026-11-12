@@ -39,7 +39,7 @@ The three main versions are separate and happen to coincide today ([ADR 5](decis
 
 | Field                                                                                  | Contents                                                                                                                                    |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version`, `source`                                                                    | `5`, and `empty`, `demo` or `personal`                                                                                                      |
+| `version`, `source`                                                                    | `5`, and `empty`, `demo` or `personal` (an edit inside the demo keeps `demo`)                                                               |
 | `goals`, `programs`                                                                    | The catalog, with routines inside programs                                                                                                  |
 | `settings`                                                                             | The planning day, work commitments and device preferences                                                                                   |
 | `days`                                                                                 | Recorded days by local date                                                                                                                 |

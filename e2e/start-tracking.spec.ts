@@ -148,6 +148,33 @@ test('Settings offers Start tracking beside Reset while the demo is loaded', asy
   await expectFreshStart(page);
 });
 
+test('an edit inside the demo keeps the DEMO tag and Start tracking', async ({ page }) => {
+  await seed(page, demoState(TODAY), { clock: new Date(2026, 10, 9, 9), route: '/settings' });
+  await page.getByRole('button', { name: /^Goals, / }).click();
+  await page.getByRole('textbox', { name: 'Goal name', exact: true }).fill('A synthetic goal');
+  await page.getByRole('button', { name: 'Save goal', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Edit goal A synthetic goal', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(MARKER)).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Start tracking with these programs', exact: true }),
+  ).toBeVisible();
+  const state = await saved(page);
+  expect(state.source).toBe('demo');
+  expect(Object.keys(state.days).length).toBeGreaterThan(0);
+  // Start tracking keeps the edit and clears the fictional history.
+  await page
+    .getByRole('button', { name: 'Start tracking with these programs', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Start tracking', exact: true }).click();
+  await expect(page.getByText(MARKER)).toHaveCount(0);
+  const tracked = await saved(page);
+  expect(tracked.source).toBe('personal');
+  expect(tracked.goals.at(-1)!.title).toBe('A synthetic goal');
+  expect(tracked.days).toEqual({});
+});
+
 test('Start tracking from another screen opens Today with the fresh plan', async ({ page }) => {
   await seed(page, demoState(TODAY), { clock: new Date(2026, 10, 9, 9), route: '/trading' });
   await page.getByRole('button', { name: 'Start tracking with the demo programs' }).click();

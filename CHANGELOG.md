@@ -8,6 +8,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 - Editing a block no longer undoes a Done recorded while the editor was open.
 - Switching a weight between lb and kg converts the number in the field, so 180 lb is never saved as 180 kg. Switching back shows the number as typed.
+- Editing a program, routine or goal inside the demo keeps the DEMO tag and Start tracking, so the demo's fictional history is never labeled as yours. Start tracking keeps the edits.
 
 ## 1.4.0 - 2026-11-04
 

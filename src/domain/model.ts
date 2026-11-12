@@ -880,6 +880,14 @@ export const defaultSettings: Settings = {
   gymTravel: null,
   eveningWorkMinutes: null,
 };
+/**
+ * Where the plan comes from after the user edits it (a program, a routine or a goal). An edit inside
+ * the demo keeps it the demo, so its DEMO tag and Start tracking stay with its fictional history;
+ * anything else is the user's own. Start tracking and a setup import replace the demo themselves.
+ */
+export function nextSource(state: State): State['source'] {
+  return state.source === 'demo' ? 'demo' : 'personal';
+}
 export function emptyState(): State {
   return {
     version: 5,

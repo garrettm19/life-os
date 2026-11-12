@@ -16,6 +16,7 @@ import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
 import { Goal, Settings, clock, emptyState, parseTime, validateSettings } from '../domain/model';
 import { GoalEditor } from '../ui/goal-editor';
+import { addGoal } from '../domain/goals';
 import { pickSetup } from '../data/pick-setup';
 import {
   Button,
@@ -379,18 +380,7 @@ export default function SettingsScreen() {
               disabled={!goalName.trim()}
               needs="Give the goal a name to save it."
               onPress={() =>
-                void change((s) => ({
-                  ...s,
-                  source: 'personal',
-                  goals: [
-                    ...s.goals,
-                    {
-                      id: newId('goal'),
-                      title: goalName.trim(),
-                      desiredState: goalTarget.trim(),
-                    },
-                  ],
-                })).then((ok) => {
+                void change((s) => addGoal(s, newId('goal'), goalName, goalTarget)).then((ok) => {
                   if (ok) {
                     setGoalName('');
                     setGoalTarget('');

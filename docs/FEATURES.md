@@ -116,7 +116,7 @@ What each widget may show is in [DATA_PRIVACY.md](DATA_PRIVACY.md#home-screen-wi
 
 **Explore demo**, on the empty Today, loads six weeks of a fictional person's records: twelve goals, a strength rotation with companions, a timed circuit, study, a weigh-in, a weekly money review and paused trading practice. The data is built on the device by `src/domain/demo.ts` through the same functions the app uses when someone taps Done, so it is deterministic for a date. Every screen carries the tag "DEMO · fictional person and records".
 
-To leave it, **Start tracking** keeps the demo's programs as your own and clears its history. Settings → Reset this device's plan returns to the empty app.
+Editing a program, routine or goal inside the demo keeps it the demo, tag and all (`nextSource` in `src/domain/model.ts`), so its fictional history is never relabeled as yours. To leave it, **Start tracking** keeps the demo's programs, with any edits, as your own and clears its history. Settings → Reset this device's plan returns to the empty app.
 
 ## Not built
 
