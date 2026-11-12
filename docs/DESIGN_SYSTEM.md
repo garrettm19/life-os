@@ -10,7 +10,7 @@ One visual system: warm paper in light and warm charcoal in dark, following the 
 ## Principles
 
 - **Usability over decoration.** Where the two conflict, the clearer layout wins.
-- **One meaning per color.** Ember (`accent`) means now: the next objective, today, the selected tab. Fern (`done`) means done. They never swap. Red marks errors, a broken rule and the edge of a confirm before a saved record is deleted, nothing else; a missed day or a skip is never red.
+- **One meaning per color.** Ember (`accent`) means now: the next objective, today, the selected tab. Fern (`done`) means done. They never swap. Red marks errors, a broken rule and the edge of a confirm before a saved record is deleted, nothing else; a missed day or a skip is never red. A past day that was not cleared is never Ember either: its line is secondary text on the quiet fill, and Not cleared in the streak details is faint and regular, quieter than a green Cleared.
 - **Neutral primaries.** The primary button is filled in the text color, so green stays the reward and Ember stays "now".
 - **Each figure once**, with its chart beside it.
 - **Real targets.** Every control is at least 44 × 44 pt, except the days of the 28-day study and trading calendars: each is 44 pt tall and spans its whole column, which can be narrower than 44 pt (at least 32 pt) on the smallest phones.

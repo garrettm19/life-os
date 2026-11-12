@@ -8,6 +8,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 - Deleting a saved record (a log entry, weight, money review, skill checkpoint or weekly review) asks once with a small card first, so nothing disappears on one tap. The card comes fully into view with focus on its line, Save steps aside while it is open, and Keep it returns to Delete. Removing a recorded study session or circuit uses the same card.
 - Deleting a weight or money review that completed its objective names the objective and its day, says when that day would no longer count as cleared, and for a past day recommends keeping the Done.
+- A past day that was not cleared reads as a quiet fact: its "Not cleared" line is secondary text instead of the orange "now" color, and Not cleared in the streak details is faint and regular, never louder than a green Cleared.
 
 ### Fixed
 

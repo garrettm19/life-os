@@ -22,21 +22,25 @@ export function segmentStates(progress: DayProgress, hasActive: boolean): Segmen
   ];
 }
 
-/** Plain text while the day counts down; Ember when something stands in its way. */
-export type Callout = { text: string; tone: 'text' | 'now' };
+/**
+ * Plain text while the day counts down; Ember when something stands in its way today; quiet
+ * (secondary text) for a day that is over, so a past miss reads as a faint fact, never louder than
+ * a win.
+ */
+export type Callout = { text: string; tone: 'text' | 'now' | 'quiet' };
 
 /**
  * The goal line beside the count: how far the day is from clearing. A day that is over (`past`)
  * gets no countdown: it already counts as not cleared, or as held when it is protected, though its
- * rows can still be recorded.
+ * rows can still be recorded. Its line is quiet: Ember means now, and a past day is not now.
  */
 export function callout(progress: DayProgress, past = false): Callout | null {
   if (progress.cleared) return null;
   if (progress.remaining > 0) {
     if (past)
       return progress.protected
-        ? { text: `${progress.remaining} not done`, tone: 'text' }
-        : { text: `Not cleared · ${progress.remaining} not done`, tone: 'now' };
+        ? { text: `${progress.remaining} not done`, tone: 'quiet' }
+        : { text: `Not cleared · ${progress.remaining} not done`, tone: 'quiet' };
     // Timed sessions missing from the board are part of what remains, but the board cannot act on
     // them until the day is generated, so the line says why instead of only counting.
     if (progress.remaining === progress.missingTimed)
@@ -48,7 +52,8 @@ export function callout(progress: DayProgress, past = false): Callout | null {
     return { text: `${progress.remaining} to clear the day`, tone: 'text' };
   }
   // Everything required was skipped: excused, but nothing was done, so the day is not cleared.
-  if (progress.skipped > 0) return { text: 'All skipped · not cleared', tone: 'now' };
+  if (progress.skipped > 0)
+    return { text: 'All skipped · not cleared', tone: past ? 'quiet' : 'now' };
   return null;
 }
 

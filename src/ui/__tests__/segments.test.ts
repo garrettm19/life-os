@@ -134,15 +134,22 @@ describe('callout', () => {
       progress({ done: 6, remaining: 1, total: 7 }),
       progress({ done: 0, remaining: 1, missingTimed: 1, total: 1 }),
     ])
+      // A past miss is a quiet fact: never Ember, which means now.
       expect(callout(p, true)).toEqual({
         text: `Not cleared · ${p.remaining} not done`,
-        tone: 'now',
+        tone: 'quiet',
       });
     expect(callout(progress({ done: 1, remaining: 4, total: 5, protected: true }), true)).toEqual({
       text: '4 not done',
-      tone: 'text',
+      tone: 'quiet',
     });
     expect(callout(progress({ done: 2, total: 2, cleared: true }), true)).toBeNull();
+  });
+
+  it('keeps a past day with everything skipped quiet, and today’s in Ember', () => {
+    const allSkipped = progress({ done: 0, skipped: 2, remaining: 0, total: 0 });
+    expect(callout(allSkipped, true)).toEqual({ text: 'All skipped · not cleared', tone: 'quiet' });
+    expect(callout(allSkipped)).toEqual({ text: 'All skipped · not cleared', tone: 'now' });
   });
 });
 

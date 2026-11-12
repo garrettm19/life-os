@@ -179,7 +179,10 @@ export function DayProgressBody({
   );
 }
 
-/** The goal line as a small capsule: "3 to clear the day", Ember when something stands in the way. */
+/**
+ * The goal line as a small capsule: "3 to clear the day", Ember when something stands in the way
+ * today, secondary text for a day that is over.
+ */
 function GoalChip({ text, tone }: { text: string; tone: Callout['tone'] }) {
   const warm = tone === 'now';
   return (
@@ -196,7 +199,7 @@ function GoalChip({ text, tone }: { text: string; tone: Callout['tone'] }) {
           ...type.callout,
           fontSize: 14,
           lineHeight: 19,
-          color: warm ? palette.accentText : palette.label,
+          color: warm ? palette.accentText : tone === 'quiet' ? palette.label2 : palette.label,
         }}>
         {text}
       </Text>
@@ -300,16 +303,16 @@ export function StreakSheetBody({
               accessibilityLabel={`${displayDate(entry.date)}: ${outcomeLabel(entry)}`}
               style={[styles.spread, { minHeight: 32 }]}>
               <Text style={{ ...type.meta, color: palette.label2 }}>{displayDate(entry.date)}</Text>
+              {/* A win in Fern and a held day in Ember, as on the chain; anything else a quiet
+                  fact at regular weight, never louder than Cleared. */}
               <Text
-                style={{
-                  ...type.meta,
-                  color:
-                    entry.outcome === 'cleared'
-                      ? palette.done
-                      : entry.outcome === 'protected'
-                        ? palette.accent
-                        : palette.label,
-                }}>
+                style={
+                  entry.outcome === 'cleared'
+                    ? { ...type.meta, color: palette.done }
+                    : entry.outcome === 'protected'
+                      ? { ...type.meta, color: palette.accent }
+                      : { ...type.meta, ...fonts.regular, color: palette.label3 }
+                }>
                 {outcomeLabel(entry)}
               </Text>
             </View>

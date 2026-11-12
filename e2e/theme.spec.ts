@@ -307,6 +307,26 @@ test('a past day never opened reads in label3, which small text can read', async
   await expect(status).toHaveCSS('color', rgb(palette.label3));
 });
 
+test('a past day left open reads Not cleared in secondary text, never Ember', async ({ page }) => {
+  // Wednesday, looking back at Monday, which was opened and left open.
+  const opened = ensureChecklistDay(
+    MON,
+    studyState().settings,
+    studyState().programs,
+    undefined,
+    new Date(2026, 10, 9, 9).toISOString(),
+  );
+  await seed(page, withDay(studyState(), opened), {
+    clock: new Date(2026, 10, 11, 9),
+    route: `/?date=${MON}`,
+  });
+  const line = page.getByText(/^Not cleared · \d+ not done$/);
+  await expect(line).toBeVisible();
+  // Secondary text on the quiet fill: never Ember, which means now.
+  await expect(line).toHaveCSS('color', rgb(palette.label2));
+  await expect(line.locator('..')).toHaveCSS('background-color', rgb(palette.fill));
+});
+
 test('a plan set up mid-week reads the days before it as before you started, not missed', async ({
   page,
 }) => {

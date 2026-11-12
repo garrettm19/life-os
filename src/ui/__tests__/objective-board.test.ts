@@ -7,8 +7,8 @@ import { trainingState } from '../../test-support/fixtures';
 import { dayOutcome, dayProgress } from '../../domain/objectives';
 import { needsEnsure } from '../../domain/rotation';
 import { Count } from '../mission';
-import { ObjectiveBoard, streakDetailsLabel } from '../objective-board';
-import { palette } from '../theme';
+import { ObjectiveBoard, StreakSheetBody, streakDetailsLabel } from '../objective-board';
+import { fonts, palette } from '../theme';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
@@ -225,5 +225,75 @@ describe('the board on a protected day', () => {
     // A held past day reads only what is open, no countdown.
     expect(text).toContain('1 not done');
     expect(text).not.toMatch(/to clear the day/);
+  });
+});
+
+describe('a past day reads quieter than a win', () => {
+  const block = (i: number, status: 'done' | 'planned') => ({
+    id: `${MON}:manual:${i}`,
+    routineId: null,
+    programId: null,
+    title: `Example ${i}`,
+    start: null,
+    duration: null,
+    fixed: false,
+    steps: [],
+    status,
+    actualAt: null,
+    reason: null,
+    checklist: true,
+  });
+
+  it('draws a past day’s Not cleared line in secondary text, never Ember', () => {
+    const state = trainingState();
+    const day = { date: MON, revisions: [], blocks: [block(0, 'done'), block(1, 'planned')] };
+    const saved = { ...state, days: { [MON]: day } };
+    let tree: ReactTestRenderer | null = null;
+    act(() => {
+      tree = create(
+        createElement(ObjectiveBoard, {
+          isToday: false,
+          notPast: false,
+          progress: dayProgress(day, state.programs, MON),
+          streak: { current: 0, best: 3 },
+          outcome: dayOutcome(saved, MON),
+          hasActive: false,
+          celebrate: false,
+          onOpenStreak: () => {},
+        }),
+      );
+    });
+    const line = tree!.root
+      .findAllByType(Text)
+      .find((t) => t.props.children === 'Not cleared · 1 not done')!;
+    expect(StyleSheet.flatten(line.props.style).color).toBe(palette.label2);
+  });
+
+  it('lists Not cleared in the streak details faint and regular, and Cleared in Fern', () => {
+    let tree: ReactTestRenderer | null = null;
+    act(() => {
+      tree = create(
+        createElement(StreakSheetBody, {
+          streak: { current: 1, best: 3 },
+          history: [
+            { date: '2026-11-07', outcome: 'protected', protection: { reason: 'travel', at: '' } },
+            { date: '2026-11-08', outcome: 'open' },
+            { date: MON, outcome: 'cleared' },
+          ],
+          onProtect: () => {},
+          onClearProtection: () => {},
+        }),
+      );
+    });
+    const style = (words: string) =>
+      StyleSheet.flatten(
+        tree!.root.findAllByType(Text).find((t) => t.props.children === words)!.props.style,
+      );
+    expect(style('Not cleared')).toMatchObject({
+      color: palette.label3,
+      fontWeight: fonts.regular.fontWeight,
+    });
+    expect(style('Cleared')).toMatchObject({ color: palette.done });
+    expect(style('Cleared').fontWeight).not.toBe(fonts.regular.fontWeight);
   });
 });
