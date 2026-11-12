@@ -475,6 +475,34 @@ export function editBlock(
     : [...day.blocks, next];
   return revision(day, blocks, current ? 'Edit block' : 'Add block', now);
 }
+/** A block added by hand on Today: no routine behind it, and an ID from the block editor. */
+export function isManualBlock(block: Block, date: string): boolean {
+  return block.routineId === null && block.id.startsWith(`${date}:manual:`);
+}
+
+/**
+ * Removes a block added by hand, recording a revision so the plan it left stays on record. Only a
+ * hand-added block on `today` or later can go: a routine's occurrence is paused or skipped instead,
+ * and a past day is history (it can still be skipped).
+ */
+export function removeBlock(
+  day: Day,
+  id: string,
+  today: string,
+  now = new Date().toISOString(),
+): Day {
+  const block = day.blocks.find((b) => b.id === id);
+  if (!block) throw new Error('This block no longer exists.');
+  if (!isManualBlock(block, day.date))
+    throw new Error('Only a block added by hand can be deleted. Skip or pause a routine instead.');
+  if (day.date < today) throw new Error('A past day keeps its blocks. Skip this one instead.');
+  return revision(
+    day,
+    day.blocks.filter((b) => b.id !== id),
+    'Remove block',
+    now,
+  );
+}
 /**
  * The day holding a Done occurrence, found by its block ID wherever it sits (a moved occurrence keeps
  * its ID on another day), or null when it is not done. A record that completed an objective (a

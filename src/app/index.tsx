@@ -34,7 +34,15 @@ import {
   protectDay,
   yesterdayOpen,
 } from '../domain/objectives';
-import { editBlock, generateDay, makeBlock, replanDay, setStatus } from '../domain/planner';
+import {
+  editBlock,
+  generateDay,
+  isManualBlock,
+  makeBlock,
+  removeBlock,
+  replanDay,
+  setStatus,
+} from '../domain/planner';
 import { Button, Field, Page, SectionLabel, Sheet, TimeField, styles } from '../ui/components';
 import { Disclosure, LinkButton } from '../ui/controls';
 import { RestoreDone, RestoreSheet, useRestore } from '../ui/restore-sheet';
@@ -47,6 +55,7 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { ConfirmRemove } from '../ui/confirm-remove';
 import { useSetupImport } from '../ui/setup-import';
 import { HousekeepingLine } from '../ui/housekeeping-line';
 import { MonthCalendar } from '../ui/dot-calendar';
@@ -165,7 +174,8 @@ export default function TodayScreen() {
     // The date whose first save failed, so Today stops waiting for it.
     [unsaved, setUnsaved] = useState<string | null>(null),
     // Re-renders Today when the Finish yesterday line is closed (the closed dates live in memory).
-    [, setFinishHidden] = useState<string | null>(null);
+    [, setFinishHidden] = useState<string | null>(null),
+    [confirmBlockDelete, setConfirmBlockDelete] = useState(false);
   let base = localDate(now);
   if (params.date) {
     try {
@@ -291,12 +301,33 @@ export default function TodayScreen() {
   const open = (b?: Block, on = date) => {
     const value = b ?? makeBlock(manualBlockId(on), '', null, 30);
     setEditing(value);
+    setConfirmBlockDelete(false);
     setEditingDate(on);
     setTitle(value.title);
     setTime(value.start === null ? '' : timeInput(value.start));
     setDuration(String(value.duration ?? ''));
     setFixed(value.fixed);
     setFormError(null);
+  };
+  // The block being edited as it is saved now, once it exists (a new block has nothing to delete).
+  const editingSaved = editing
+    ? state.days[editingDate ?? date]?.blocks.find((b) => b.id === editing.id)
+    : undefined;
+  const deleteBlock = async () => {
+    if (!editing) return;
+    const target = editingDate ?? date;
+    try {
+      const okay = await change((s) =>
+        withDay(s, removeBlock(s.days[target], editing.id, localDate(), new Date().toISOString())),
+      );
+      if (okay) {
+        setConfirmBlockDelete(false);
+        setEditing(null);
+      }
+    } catch (e) {
+      setConfirmBlockDelete(false);
+      setFormError(e instanceof Error ? e.message : 'Could not delete this block.');
+    }
   };
   const save = async () => {
     try {
@@ -1133,6 +1164,23 @@ export default function TodayScreen() {
           </Text>
         )}
         <Button title="Save block" onPress={() => void save()} />
+        {/* A block added by hand can be deleted on today or later; a past day only skips it. */}
+        {editing &&
+          editingSaved &&
+          isManualBlock(editing, editingDate ?? date) &&
+          (editingDate ?? date) >= today && (
+            <ConfirmRemove
+              open={confirmBlockDelete}
+              setOpen={setConfirmBlockDelete}
+              ask="Delete block"
+              message={
+                editingSaved.status === 'done'
+                  ? `Delete ${editingSaved.title}? It counted toward ${(editingDate ?? date) === today ? 'today' : 'that day'}, and the day is worked out again without it.`
+                  : `Delete ${editingSaved.title}? It leaves this day's plan.`
+              }
+              remove={{ title: 'Delete block', onPress: () => void deleteBlock() }}
+            />
+          )}
         {editedRoutine && (
           <LinkButton
             title="Change days, privacy or pause ›"

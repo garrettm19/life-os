@@ -24,6 +24,8 @@ import {
   overlaps,
   replanDay,
   setStatus,
+  isManualBlock,
+  removeBlock,
 } from '../planner';
 
 const monday = '2026-11-09',
@@ -626,5 +628,36 @@ describe('the block editor saves over what was recorded while it was open', () =
     const saved = editBlock(start(), extra, settings, '2026-11-09T09:00:00.000Z');
     expect(saved.blocks.at(-1)).toEqual(extra);
     expect(saved.revisions.at(-1)!.reason).toBe('Add block');
+  });
+});
+
+describe('removing a block added by hand', () => {
+  const date = '2026-11-10';
+  const now = new Date(2026, 10, 10, 9).toISOString();
+  const settings = emptyState().settings;
+  const manual = makeBlock(`${date}:manual:block-1`, 'Example errand', 600, 30);
+  const routine = {
+    ...makeBlock(`${date}:routine:walk`, 'Example walk', 660, 30),
+    routineId: 'walk',
+  };
+  const day = editBlock({ date, blocks: [routine], revisions: [] }, manual, settings, now);
+
+  test('removes it and keeps the plan it left as a revision', () => {
+    const next = removeBlock(day, manual.id, date, now);
+    expect(next.blocks.map((b) => b.id)).toEqual([routine.id]);
+    expect(next.revisions.at(-1)).toMatchObject({ reason: 'Remove block', at: now });
+    expect(next.revisions.at(-1)!.blocks.map((b) => b.id)).toEqual([routine.id, manual.id]);
+  });
+
+  test('removes a done one too, and Day Cleared is worked out without it', () => {
+    const done = setStatus(day, manual.id, 'done', now);
+    expect(removeBlock(done, manual.id, date, now).blocks).toHaveLength(1);
+  });
+
+  test("refuses a routine's occurrence and a past day", () => {
+    expect(() => removeBlock(day, routine.id, date, now)).toThrow(/added by hand/);
+    expect(() => removeBlock(day, manual.id, '2026-11-11', now)).toThrow(/past day/);
+    expect(isManualBlock(manual, date)).toBe(true);
+    expect(isManualBlock(routine, date)).toBe(false);
   });
 });

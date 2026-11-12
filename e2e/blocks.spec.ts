@@ -188,3 +188,22 @@ test('a block added to a day that is over is never asked to be scheduled', async
   const added = (await saved(page)).days[MON].blocks.find((b) => b.title === 'Called the bank')!;
   expect(added).toMatchObject({ start: null, reason: null, status: 'planned' });
 });
+
+test('a block added by hand can be deleted after one confirm, with a revision kept', async ({
+  page,
+}) => {
+  await openBasic(page, date);
+  await openMore(page);
+  await page.getByRole('button', { name: 'Add block', exact: true }).click();
+  await page.getByLabel('Block name', { exact: true }).fill('Example errand');
+  await page.getByLabel('Start time').fill('4pm');
+  await page.getByRole('button', { name: 'Save block', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Example errand' }).click();
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click();
+  await expect(page.getByText("Delete Example errand? It leaves this day's plan.")).toBeVisible();
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Edit Example errand' })).toHaveCount(0);
+  const day = (await saved(page)).days[date];
+  expect(day.blocks.some((b) => b.title === 'Example errand')).toBe(false);
+  expect(day.revisions.at(-1)!.reason).toBe('Remove block');
+});
