@@ -9,10 +9,11 @@ import {
   recordWeight,
   weightIn,
 } from '../domain/measurements';
-import { doneOccurrenceDay, setStatus } from '../domain/planner';
+import { undoEffect } from '../domain/objectives';
+import { setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
-import { ConfirmRemove } from './confirm-remove';
+import { ConfirmRemove, linkedQuestion } from './confirm-remove';
 import { newId } from './ids';
 import { palette, type } from './theme';
 
@@ -59,9 +60,15 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
             (m.occurrenceId === target.occurrence?.block.id || m.date === date),
         )
       : undefined);
-  const linkedDone =
-    !!existing?.occurrenceId && !!doneOccurrenceDay(state.days, existing.occurrenceId);
+  // A weight that completed its weigh-in, still Done: deleting it asks what happens to the Done.
+  const undoing = existing?.occurrenceId ? undoEffect(state, existing.occurrenceId, today) : null;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const remove = (undoObjective: boolean) => {
+    if (!existing) return;
+    void change((s) => deleteMeasurement(s, existing.id, { undoObjective })).then(
+      (ok) => ok && close(),
+    );
+  };
   const last = lastWeight(state.measurements, existing?.id);
   const [unit, setUnit] = useState<WeightUnit>(
     existing?.entered.unit ?? last?.entered.unit ?? 'lb',
@@ -200,7 +207,10 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           {error}
         </Text>
       )}
-      <Button title={existing ? 'Save correction' : 'Save weight'} onPress={() => void save()} />
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button title={existing ? 'Save correction' : 'Save weight'} onPress={() => void save()} />
+      )}
       {planned && (
         <Button
           secondary
@@ -215,37 +225,24 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           }
         />
       )}
-      {existing &&
-        (!confirmDelete ? (
-          <Button secondary title="Delete this weight" onPress={() => setConfirmDelete(true)} />
-        ) : linkedDone ? (
-          <ConfirmRemove
-            message="This weight completed a weigh-in. Deleting it removes it from your history and Progress; choose what happens to the weigh-in."
-            remove={{
-              title: 'Delete weight and undo the weigh-in',
-              onPress: () =>
-                void change((s) => deleteMeasurement(s, existing.id, { undoObjective: true })).then(
-                  (ok) => ok && close(),
-                ),
-            }}
-            also={{
-              title: 'Delete weight, keep weigh-in done',
-              onPress: () =>
-                void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close()),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ) : (
-          <ConfirmRemove
-            message="Delete this weight? It leaves your history and Progress."
-            remove={{
-              title: 'Delete weight',
-              onPress: () =>
-                void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close()),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ))}
+      {existing && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this weight"
+          {...(undoing
+            ? linkedQuestion(
+                'weight',
+                undoing,
+                { undo: () => remove(true), keep: () => remove(false) },
+                today,
+              )
+            : {
+                message: 'Delete this weight? It leaves your history and Progress.',
+                remove: { title: 'Delete weight', onPress: () => remove(false) },
+              })}
+        />
+      )}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Private. Stays on this device and off the Home Screen widget. One weight per date.
       </Text>

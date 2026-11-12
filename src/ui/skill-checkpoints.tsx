@@ -113,25 +113,27 @@ function CheckpointSheet({
         <Field label="Topics (optional)" value={topics} onChange={setTopics} multiline />
         <Field label="Next practice area (optional)" value={next} onChange={setNext} />
       </Disclosure>
-      <Button
-        title="Save checkpoint"
-        disabled={!method.trim() || !attempted.trim() || !solved.trim()}
-        needs="Fill in where and how, attempted and solved to save it."
-        onPress={save}
-      />
-      {existing &&
-        (confirmDelete ? (
-          <ConfirmRemove
-            message="Delete this checkpoint? It leaves your history and Progress."
-            remove={{
-              title: 'Delete checkpoint',
-              onPress: () => void change((s) => deleteCheckpoint(s, existing.id)).then(done),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ) : (
-          <Button secondary title="Delete this checkpoint" onPress={() => setConfirmDelete(true)} />
-        ))}
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button
+          title="Save checkpoint"
+          disabled={!method.trim() || !attempted.trim() || !solved.trim()}
+          needs="Fill in where and how, attempted and solved to save it."
+          onPress={save}
+        />
+      )}
+      {existing && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this checkpoint"
+          message="Delete this checkpoint? It leaves your history and Progress."
+          remove={{
+            title: 'Delete checkpoint',
+            onPress: () => void change((s) => deleteCheckpoint(s, existing.id)).then(done),
+          }}
+        />
+      )}
     </Sheet>
   );
 }

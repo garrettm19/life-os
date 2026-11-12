@@ -33,6 +33,7 @@ import {
 import { useApp } from '../state/app-state';
 import { announce } from './announce';
 import { Button, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { newId } from './ids';
 import { StudyPlanEditor } from './study-plan-editor';
 import { PressableScale } from './motion';
@@ -642,34 +643,21 @@ function Recorded({ date, block, close }: { date: string; block: Block; close: (
           )}
         </>
       )}
-      {confirmRemove ? (
-        <View style={[styles.card, { gap: 10, borderColor: palette.danger }]}>
-          <Text style={styles.body}>
-            Remove this recorded session? The objective goes back to not done.
-          </Text>
-          <View style={styles.row}>
-            <Button
-              secondary
-              small
-              title="Remove session"
-              onPress={() =>
-                void change((s) => discardStudySession(s, date, block.id)).then(
-                  (ok) => ok && setConfirmRemove(false),
-                )
-              }
-            />
-            <Button small title="Keep it" onPress={() => setConfirmRemove(false)} />
-          </View>
-        </View>
-      ) : (
-        <Button
-          secondary
-          small
-          title="Recorded by mistake?"
-          label="Remove this recorded study session"
-          onPress={() => setConfirmRemove(true)}
-        />
-      )}
+      <ConfirmRemove
+        open={confirmRemove}
+        setOpen={setConfirmRemove}
+        small
+        ask="Recorded by mistake?"
+        askLabel="Remove this recorded study session"
+        message="Remove this recorded session? The objective goes back to not done."
+        remove={{
+          title: 'Remove session',
+          onPress: () =>
+            void change((s) => discardStudySession(s, date, block.id)).then(
+              (ok) => ok && setConfirmRemove(false),
+            ),
+        }}
+      />
     </ScrollView>
   );
 }

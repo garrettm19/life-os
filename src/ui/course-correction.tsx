@@ -73,34 +73,36 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
         Nothing on your plan changes by itself. If the adjustment needs a new time or day, change it
         in Programs.
       </Text>
-      <Button
-        title="Save review"
-        disabled={!obstacle.trim() && !adjustment.trim() && !noChange}
-        needs="Write the obstacle or one adjustment, or choose No adjustment needed, to save."
-        onPress={() =>
-          void change((s) =>
-            saveWeeklyReview(
-              s,
-              { weekStart, obstacle, adjustment, noChange },
-              newId('week'),
-              new Date().toISOString(),
-            ),
-          ).then(done)
-        }
-      />
-      {saved &&
-        (confirmDelete ? (
-          <ConfirmRemove
-            message="Remove this review? The week's answers are cleared; your plan is unchanged."
-            remove={{
-              title: 'Remove review',
-              onPress: () => void change((s) => deleteWeeklyReview(s, weekStart)).then(done),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ) : (
-          <Button secondary title="Remove this review" onPress={() => setConfirmDelete(true)} />
-        ))}
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button
+          title="Save review"
+          disabled={!obstacle.trim() && !adjustment.trim() && !noChange}
+          needs="Write the obstacle or one adjustment, or choose No adjustment needed, to save."
+          onPress={() =>
+            void change((s) =>
+              saveWeeklyReview(
+                s,
+                { weekStart, obstacle, adjustment, noChange },
+                newId('week'),
+                new Date().toISOString(),
+              ),
+            ).then(done)
+          }
+        />
+      )}
+      {saved && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Remove this review"
+          message="Remove this review? The week's answers are cleared; your plan is unchanged."
+          remove={{
+            title: 'Remove review',
+            onPress: () => void change((s) => deleteWeeklyReview(s, weekStart)).then(done),
+          }}
+        />
+      )}
     </Sheet>
   );
 }

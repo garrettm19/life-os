@@ -38,6 +38,7 @@ import { withDay } from '../domain/data';
 import { useApp } from '../state/app-state';
 import { clockFontSize, clockLineHeight } from './clock-size';
 import { Button, Chip, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { CircuitEditor } from './circuit-editor';
 import { useCues } from './cues';
 import { PressableScale } from './motion';
@@ -194,35 +195,22 @@ function Recorded({
             }
           />
         )}
-        {confirmDiscard ? (
-          <View style={[styles.card, { gap: 10, borderColor: palette.danger }]}>
-            <Text style={styles.body}>
-              Remove this recorded circuit? The objective goes back to not done.
-            </Text>
-            <View style={styles.row}>
-              <Button
-                secondary
-                small
-                title="Remove circuit"
-                onPress={() =>
-                  void saveActiveCircuit(block.id, null)
-                    .catch(() => {})
-                    .then(() => change((s) => discardCircuitSession(s, date, block.id)))
-                    .then((ok) => ok && setConfirmDiscard(false))
-                }
-              />
-              <Button small title="Keep it" onPress={() => setConfirmDiscard(false)} />
-            </View>
-          </View>
-        ) : (
-          <Button
-            secondary
-            small
-            title="Recorded by mistake?"
-            label="Remove this recorded circuit"
-            onPress={() => setConfirmDiscard(true)}
-          />
-        )}
+        <ConfirmRemove
+          open={confirmDiscard}
+          setOpen={setConfirmDiscard}
+          small
+          ask="Recorded by mistake?"
+          askLabel="Remove this recorded circuit"
+          message="Remove this recorded circuit? The objective goes back to not done."
+          remove={{
+            title: 'Remove circuit',
+            onPress: () =>
+              void saveActiveCircuit(block.id, null)
+                .catch(() => {})
+                .then(() => change((s) => discardCircuitSession(s, date, block.id)))
+                .then((ok) => ok && setConfirmDiscard(false)),
+          }}
+        />
       </ScrollView>
     </View>
   );

@@ -315,12 +315,11 @@ test('deleting a weight that completed a weigh-in asks what happens to the weigh
   await page.getByRole('button', { name: 'Save weight', exact: true }).click();
   await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
   await page.getByRole('button', { name: 'Delete this weight', exact: true }).click();
+  await expect(page.getByText(/^This weight completed Weekly weigh-in today\./)).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Delete weight and undo the weigh-in', exact: true }),
+    page.getByRole('button', { name: 'Delete and undo Done', exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Delete weight, keep weigh-in done', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Delete, keep Done', exact: true }).click();
   await expect(page.getByText('Done · no measurement')).toBeVisible();
   const after = await saved(page);
   expect(after.measurements).toEqual([]);

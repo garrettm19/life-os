@@ -8,6 +8,7 @@ import {
   State,
   shiftDate,
 } from './model';
+import { doneOccurrenceDay, setStatus } from './planner';
 
 // Day Cleared and the Day Clear streak: the one rule that Today, Week, Progress, the streak and the
 // widgets all read. `dayProgress` counts a stored day's required objectives: an optional one never
@@ -206,6 +207,45 @@ export function dayOutcome(state: State, date: string): DayOutcome {
   // A day whose every required objective was skipped is not cleared: it had something due.
   if (progress.total === 0 && progress.skipped === 0) return 'empty';
   return 'open';
+}
+
+/** What undoing a Done occurrence would change, read before a record's delete offers the undo. */
+export type UndoEffect = {
+  /** The day the Done sits on (a moved occurrence keeps its ID on another day). */
+  date: string;
+  /** The objective's title as stored on that day. */
+  title: string;
+  /** That day counts as cleared now and would no longer with the objective not done. */
+  unclears: boolean;
+  /**
+   * Keeping the Done is the recommended choice: the day is past, so it can no longer be cleared
+   * again, and undoing would change its Day Cleared and the streak with it.
+   */
+  keepDone: boolean;
+};
+
+/**
+ * The effect of putting a Done occurrence back to planned, by `dayOutcome` before and after, or
+ * null when the occurrence is not Done anywhere. A record that completed an objective (a weight, a
+ * money review) shows this in its delete confirm, so undoing a Done never takes a Day Cleared away
+ * without saying so, and on a past day keeping the Done is what it recommends.
+ */
+export function undoEffect(state: State, blockId: string, today: string): UndoEffect | null {
+  const day = doneOccurrenceDay(state.days, blockId);
+  if (!day) return null;
+  const title = day.blocks.find((b) => b.id === blockId)!.title;
+  let unclears = false;
+  if (dayOutcome(state, day.date) === 'cleared') {
+    try {
+      const undone = setStatus(day, blockId, 'planned');
+      unclears =
+        dayOutcome({ ...state, days: { ...state.days, [day.date]: undone } }, day.date) !==
+        'cleared';
+    } catch {
+      // A block that cannot go back to planned (its slot is taken) cannot be undone either.
+    }
+  }
+  return { date: day.date, title, unclears, keepDone: unclears && day.date < today };
 }
 
 export function outcomeLabel(entry: StreakDay): string {

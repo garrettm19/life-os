@@ -10,7 +10,7 @@ One visual system: warm paper in light and warm charcoal in dark, following the 
 ## Principles
 
 - **Usability over decoration.** Where the two conflict, the clearer layout wins.
-- **One meaning per color.** Ember (`accent`) means now: the next objective, today, the selected tab. Fern (`done`) means done. They never swap. Red marks errors and a broken rule only; a missed day or a skip is never red.
+- **One meaning per color.** Ember (`accent`) means now: the next objective, today, the selected tab. Fern (`done`) means done. They never swap. Red marks errors, a broken rule and the edge of a confirm before a saved record is deleted, nothing else; a missed day or a skip is never red.
 - **Neutral primaries.** The primary button is filled in the text color, so green stays the reward and Ember stays "now".
 - **Each figure once**, with its chart beside it.
 - **Real targets.** Every control is at least 44 × 44 pt, except the days of the 28-day study and trading calendars: each is 44 pt tall and spans its whole column, which can be narrower than 44 pt (at least 32 pt) on the smallest phones.
@@ -68,7 +68,7 @@ Source strings stay in sentence case; uppercase is a style, so accessible names 
 - Every sheet and full-screen view carries its own `SafeAreaProvider`, because a native modal does not inherit the app's.
 - The round objective check is a 30 pt circle in a 44 pt target: an outline when open, Ember for the next thing to do, solid Fern when done, dashed when skipped.
 - An on/off setting is always a switch row with a caption saying what the current state means, never a button.
-- Deleting a saved record takes one small confirm (`ConfirmRemove`, `src/ui/confirm-remove.tsx`): a card with a `danger` edge, one line saying what happens, then the choice. Keep it is the primary button, except when the record completed an objective: then deleting it and undoing the Done is the primary choice, keeping the Done is secondary, and Keep it is quiet. Plan changes never use it.
+- Deleting a saved record (and removing a recorded study session or circuit) takes one small confirm (`ConfirmRemove`, `src/ui/confirm-remove.tsx`): the Delete button turns into a card with a `danger` edge, one line saying what happens, then the choice. The card comes fully into view with focus on its line, the sheet's Save is hidden while it is open, and Keep it puts focus back on Delete. One filled button marks the recommended choice: Keep it for a plain delete. When the record completed an objective, the line names the objective and its day, and says when that day would no longer count as cleared; "Delete and undo Done" is recommended, except on a past day it would un-clear, where "Delete, keep Done" is. The other choices, Keep it included, are tonal. Plan changes never use it.
 
 ## Charts
 

@@ -15,10 +15,11 @@ import {
   previousReview,
   saveMoneyReview,
 } from '../domain/money';
-import { doneOccurrenceDay, setStatus } from '../domain/planner';
+import { undoEffect } from '../domain/objectives';
+import { setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
-import { ConfirmRemove } from './confirm-remove';
+import { ConfirmRemove, linkedQuestion } from './confirm-remove';
 import { Disclosure, LinkButton } from './controls';
 import { newId } from './ids';
 import { palette, type } from './theme';
@@ -74,8 +75,13 @@ function MoneyForm({ target, close }: { target: MoneyTarget; close: () => void }
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // A review that completed its objective, still Done: deleting it asks what happens to the Done.
-  const linkedDone =
-    !!existing?.occurrenceId && !!doneOccurrenceDay(state.days, existing.occurrenceId);
+  const undoing = existing?.occurrenceId
+    ? undoEffect(state, existing.occurrenceId, localDate())
+    : null;
+  const remove = (undo: boolean) => {
+    if (!existing) return;
+    void change((s) => deleteMoneyReview(s, existing.id, { undo })).then((ok) => ok && close());
+  };
   // One ID per open form: a repeated Save corrects the same review instead of adding another.
   const [id] = useState(() => existing?.id ?? newId('money'));
   const set = (field: keyof Texts, value: string) => {
@@ -256,7 +262,10 @@ function MoneyForm({ target, close }: { target: MoneyTarget; close: () => void }
           {error}
         </Text>
       )}
-      <Button title={existing ? 'Save correction' : 'Save review'} onPress={() => void save()} />
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button title={existing ? 'Save correction' : 'Save review'} onPress={() => void save()} />
+      )}
       {planned && (
         <Button
           secondary
@@ -271,37 +280,22 @@ function MoneyForm({ target, close }: { target: MoneyTarget; close: () => void }
           }
         />
       )}
-      {existing &&
-        (!confirmDelete ? (
-          <Button secondary title="Delete this review" onPress={() => setConfirmDelete(true)} />
-        ) : linkedDone ? (
-          <ConfirmRemove
-            message="This review completed your money review. Delete it and undo that, or keep the money review done?"
-            remove={{
-              title: 'Delete review and undo',
-              onPress: () =>
-                void change((s) => deleteMoneyReview(s, existing.id, { undo: true })).then(
-                  (ok) => ok && close(),
-                ),
-            }}
-            also={{
-              title: 'Delete review, keep Done',
-              onPress: () =>
-                void change((s) => deleteMoneyReview(s, existing.id)).then((ok) => ok && close()),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ) : (
-          <ConfirmRemove
-            message="Delete this review? It leaves your history and Progress."
-            remove={{
-              title: 'Delete review',
-              onPress: () =>
-                void change((s) => deleteMoneyReview(s, existing.id)).then((ok) => ok && close()),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ))}
+      {existing && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this review"
+          {...(undoing
+            ? linkedQuestion('review', undoing, {
+                undo: () => remove(true),
+                keep: () => remove(false),
+              })
+            : {
+                message: 'Delete this review? It leaves your history and Progress.',
+                remove: { title: 'Delete review', onPress: () => remove(false) },
+              })}
+        />
+      )}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Blank means not reported, not zero. These totals cover only what you enter here, so they are
         not a full net worth. Private: never on the widget, never sent anywhere.

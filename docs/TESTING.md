@@ -98,7 +98,7 @@ Checklist for a release candidate, in light and dark:
 11. VoiceOver reads every row, check and chart list; Dynamic Type at the largest sizes keeps every main action reachable.
 12. Export a backup and an analysis file through the share sheet; Reset returns to the empty app.
 13. With a block's editor open, tick it Done on the large widget, return to the app and save an edit: the block stays Done with its time.
-14. Deleting a log entry, weight, money review, skill checkpoint or weekly review shows the confirm card; VoiceOver reaches its line and buttons, and at the largest Dynamic Type sizes every choice is reachable.
+14. Deleting a log entry, weight, money review, skill checkpoint or weekly review shows the confirm card fully on screen; VoiceOver moves to its line and reads it, Keep it returns VoiceOver to Delete, and at the largest Dynamic Type sizes every choice is reachable.
 
 ## Known limitations
 

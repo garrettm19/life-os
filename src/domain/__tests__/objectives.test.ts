@@ -10,12 +10,14 @@ import {
   protectDay,
   streakCaption,
   streakHistory,
+  undoEffect,
 } from '../objectives';
 import { encodeBackup, parseBackup } from '../backup';
 import {
   checklistNeedsEnsure,
   ensureChecklistDay,
   generateDay,
+  makeBlock,
   setBundledStatus,
   setStatus,
 } from '../planner';
@@ -755,4 +757,43 @@ test('streak history labels a held day as in progress or upcoming, and a past op
   expect(dayClearStreak(state, tuesday, tuesday)).toEqual({ current: 0, best: 1 });
   // Without the actual date the sheet never guesses a day is still in progress.
   expect(streakHistory(state, tuesday).map((entry) => outcomeLabel(entry))[1]).toBe('Not cleared');
+});
+
+test('undoing a Done says which day it sits on and whether that day stops counting as cleared', () => {
+  const review = makeBlock(`${monday}:routine:money`, 'Money check-in', null, 15);
+  const other = makeBlock(`${monday}:manual:1`, 'Call', null, 15);
+  const weigh = {
+    ...makeBlock(`${tuesday}:routine:weigh`, 'Morning weigh-in', null, 5),
+    optional: true,
+  };
+  const plan = { ...makeBlock(`${tuesday}:manual:1`, 'Read', null, 15) };
+  const base = { ...emptyState(), source: 'personal' as const };
+  let mon: Day = { date: monday, blocks: [review, other], revisions: [] };
+  mon = setStatus(setStatus(mon, review.id, 'done', now), other.id, 'done', now);
+  let tue: Day = { date: tuesday, blocks: [weigh, plan], revisions: [] };
+  tue = setStatus(setStatus(tue, weigh.id, 'done', now), plan.id, 'done', now);
+  const state = { ...base, days: { [monday]: mon, [tuesday]: tue } };
+  expect(dayOutcome(state, monday)).toBe('cleared');
+  // A required Done on a cleared day: undoing it would leave the day not cleared.
+  expect(undoEffect(state, review.id, tuesday)).toEqual({
+    date: monday,
+    title: 'Money check-in',
+    unclears: true,
+    keepDone: true,
+  });
+  // Today can still be cleared again, so undoing stays the recommended choice there.
+  expect(undoEffect(state, review.id, monday)).toMatchObject({ unclears: true, keepDone: false });
+  // An optional Done never counts toward Day Cleared, so undoing it changes nothing there.
+  expect(undoEffect(state, weigh.id, tuesday)).toEqual({
+    date: tuesday,
+    title: 'Morning weigh-in',
+    unclears: false,
+    keepDone: false,
+  });
+  // A day that is not cleared has nothing to lose.
+  const open = { ...state, days: { ...state.days, [monday]: setStatus(mon, other.id, 'planned') } };
+  expect(undoEffect(open, review.id, tuesday)).toMatchObject({ unclears: false, keepDone: false });
+  // An occurrence that is not Done anywhere has nothing to undo.
+  expect(undoEffect(state, 'unknown', tuesday)).toBeNull();
+  expect(undoEffect(open, other.id, tuesday)).toBeNull();
 });

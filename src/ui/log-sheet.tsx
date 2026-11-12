@@ -131,20 +131,22 @@ function LogForm({ target, close }: { target: LogTarget; close: () => void }) {
           {error}
         </Text>
       )}
-      <Button title={entry ? 'Save entry' : 'Save to log'} onPress={() => void save()} />
-      {entry &&
-        (confirmDelete ? (
-          <ConfirmRemove
-            message="Delete this entry? It leaves your log."
-            remove={{
-              title: 'Delete entry',
-              onPress: () => void change((s) => deleteLog(s, entry.id)).then((ok) => ok && close()),
-            }}
-            keep={() => setConfirmDelete(false)}
-          />
-        ) : (
-          <Button secondary title="Delete this entry" onPress={() => setConfirmDelete(true)} />
-        ))}
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button title={entry ? 'Save entry' : 'Save to log'} onPress={() => void save()} />
+      )}
+      {entry && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this entry"
+          message="Delete this entry? It leaves your log."
+          remove={{
+            title: 'Delete entry',
+            onPress: () => void change((s) => deleteLog(s, entry.id)).then((ok) => ok && close()),
+          }}
+        />
+      )}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Private. Ratings are your own impressions, not measurements. Logging never affects Day
         Cleared.

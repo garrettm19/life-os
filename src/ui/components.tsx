@@ -1,5 +1,6 @@
 import {
   ReactNode,
+  Ref,
   createContext,
   useCallback,
   useContext,
@@ -128,9 +129,12 @@ export function Button({
   small = false,
   label,
   needs,
+  ref,
 }: {
   title: string;
   onPress: () => void;
+  /** The button itself, to move focus back to it (a confirm's Keep it returns to its Delete). */
+  ref?: Ref<View>;
   /** The tonal capsule: a choice beside the primary, or one of several equal actions. */
   secondary?: boolean;
   /** Text only, for an action that should not compete: Skip, Undo, Show as list. */
@@ -150,6 +154,7 @@ export function Button({
   const look = buttonLook(quiet ? 'quiet' : secondary ? 'secondary' : 'primary', disabled);
   const button = (
     <PressableScale
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={label ?? title}
       accessibilityState={{ disabled: inactive }}
@@ -529,8 +534,42 @@ function SettingsLink() {
   );
 }
 
-/** Brings a span of the page's content (`y`, `height`) into view, scrolling as little as needed. */
+/**
+ * Brings a span of the scrolling content (`y`, `height`) into view, scrolling as little as needed.
+ * A page and a sheet each provide one for their own content.
+ */
 const PageReveal = createContext<((y: number, height: number) => void) | null>(null);
+
+/**
+ * The reveal of the page or sheet this sits in, or null outside one. `y` is measured from the top
+ * of the scrolling content, so the caller must sit directly in it (its `onLayout` y is then right).
+ */
+export function useReveal() {
+  return useContext(PageReveal);
+}
+
+/**
+ * Content with a scroll view of its own (a full-screen view presented from a page): the page's
+ * reveal measures the page's content, so it never reaches in here.
+ */
+export function RevealBoundary({ children }: { children: ReactNode }) {
+  return <PageReveal.Provider value={null}>{children}</PageReveal.Provider>;
+}
+
+/** A scroll view's reveal: track its offset and height, and scroll a span into view on request. */
+function useScrollReveal() {
+  const scroller = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  const viewport = useRef(0);
+  const reveal = useCallback((y: number, height: number) => {
+    const top = offset.current;
+    const bottom = top + viewport.current;
+    if (!viewport.current || (y >= top && y + height <= bottom)) return;
+    const to = y + height > bottom ? Math.min(y - 8, y + height - viewport.current + 8) : y - 8;
+    scroller.current?.scrollTo({ y: Math.max(0, to), animated: false });
+  }, []);
+  return { scrollerRef: scroller, offsetRef: offset, viewportRef: viewport, reveal };
+}
 
 /**
  * Content that comes into view when `when` changes, as the next step after a tap: the trading
@@ -625,19 +664,10 @@ export function Page({
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const narrow = useWindowDimensions().width < 375;
-  const scroller = useRef<ScrollView>(null);
+  const { scrollerRef, offsetRef, viewportRef, reveal } = useScrollReveal();
   useEffect(() => {
-    if (scrollKey !== undefined) scroller.current?.scrollTo({ y: 0, animated: false });
-  }, [scrollKey]);
-  const offset = useRef(0);
-  const viewport = useRef(0);
-  const reveal = useCallback((y: number, height: number) => {
-    const top = offset.current;
-    const bottom = top + viewport.current;
-    if (!viewport.current || (y >= top && y + height <= bottom)) return;
-    const to = y + height > bottom ? Math.min(y - 8, y + height - viewport.current + 8) : y - 8;
-    scroller.current?.scrollTo({ y: Math.max(0, to), animated: false });
-  }, []);
+    if (scrollKey !== undefined) scrollerRef.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollKey, scrollerRef]);
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.canvas }}>
       {wash && (
@@ -718,17 +748,17 @@ export function Page({
           behavior="padding"
           style={{ flex: 1 }}>
           <ScrollView
-            ref={scroller}
+            ref={scrollerRef}
             style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets={keyboardInsets}
             scrollEventThrottle={32}
             onLayout={(e) => {
-              viewport.current = e.nativeEvent.layout.height;
+              viewportRef.current = e.nativeEvent.layout.height;
             }}
             onScroll={(e) => {
               const y = e.nativeEvent.contentOffset.y;
-              offset.current = y;
+              offsetRef.current = y;
               if (y > 0 !== scrolled) setScrolled(y > 0);
               onScroll?.(y);
             }}
@@ -882,6 +912,7 @@ function SheetFrame({
   const { error } = useApp();
   const insets = useSafeAreaInsets();
   const bottom = 20 + Math.max(insets.bottom, 16);
+  const { scrollerRef, offsetRef, viewportRef, reveal } = useScrollReveal();
   return (
     <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: insets.top + 8 }}>
       {/* A tap on the backdrop closes the sheet. It is hidden from VoiceOver and never takes
@@ -925,7 +956,15 @@ function SheetFrame({
           />
           <ScrollView
             key={page}
+            ref={scrollerRef}
             keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={32}
+            onLayout={(e) => {
+              viewportRef.current = e.nativeEvent.layout.height;
+            }}
+            onScroll={(e) => {
+              offsetRef.current = e.nativeEvent.contentOffset.y;
+            }}
             contentContainerStyle={{
               padding: 20,
               paddingBottom: footer ? 20 : bottom,
@@ -951,7 +990,7 @@ function SheetFrame({
                 {error}
               </Text>
             )}
-            {children}
+            <PageReveal.Provider value={reveal}>{children}</PageReveal.Provider>
           </ScrollView>
           {footer && (
             <View
