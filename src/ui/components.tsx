@@ -319,10 +319,7 @@ export function TimeField({
     read !== null &&
     read.toLowerCase().replace(/\s/g, '') === value.trim().toLowerCase().replace(/\s/g, '');
   const echo = value.trim() && read && !same ? `Reads as ${read}` : null;
-  const lines = [
-    echo,
-    hint ?? (value.trim() ? null : `For example 7:30 AM${optional ? ', or blank' : ''}`),
-  ].filter(Boolean);
+  const note = hint ?? (value.trim() ? null : `For example 7:30 AM${optional ? ', or blank' : ''}`);
   return (
     <Field
       label={label}
@@ -330,7 +327,22 @@ export function TimeField({
       onChange={onChange}
       placeholder={optional ? 'Optional' : undefined}
       time
-      hint={lines.length ? lines.join('\n') : undefined}
+      hint={
+        echo || note ? (
+          <View style={{ gap: 2 }}>
+            {/* Read out as it changes, so VoiceOver hears a wrong AM or PM too. */}
+            {echo && (
+              <Text
+                accessibilityLiveRegion="polite"
+                aria-live="polite"
+                style={{ ...type.caption, ...fonts.semibold, color: palette.label2 }}>
+                {echo}
+              </Text>
+            )}
+            {note && <Text style={type.caption}>{note}</Text>}
+          </View>
+        ) : undefined
+      }
     />
   );
 }
