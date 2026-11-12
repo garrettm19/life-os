@@ -60,7 +60,9 @@ test('an open yesterday can be finished from Today, and the run comes back', asy
   const hero = page.getByTestId('today-hero');
   await expect(hero.getByText('A fresh start today', { exact: true })).toBeVisible();
   const line = page.getByTestId('finish-yesterday');
-  await expect(line.getByText('Yesterday · 1 still open', { exact: true })).toBeVisible();
+  // In the hero card, where the note would be: it adds no row above the list.
+  await expect(hero.getByTestId('finish-yesterday')).toBeVisible();
+  await expect(line).toContainText('Yesterday · 1 still open · Finish ›');
   expect(await probeLayout(page)).toEqual([]);
   await line.getByRole('button', { name: 'Finish yesterday: 1 still open', exact: true }).click();
   // Yesterday's page, where ticks work as on Today, with a way back.

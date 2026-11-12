@@ -48,7 +48,7 @@ import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
 import { MonthCalendar } from '../ui/dot-calendar';
-import { FinishYesterday, dismissFinish, finishDismissed } from '../ui/finish-yesterday';
+import { dismissFinish, finishDismissed } from '../ui/finish-yesterday';
 import { MorningCaption, morningTrail } from '../ui/morning-trail';
 import { PressableScale } from '../ui/motion';
 import { DayNav, PinnedProgress } from '../ui/today-top';
@@ -727,6 +727,18 @@ export default function TodayScreen() {
                 hasActive={happening}
                 celebrate={celebrated === date}
                 onOpenStreak={() => setStreakOpen(true)}
+                finish={
+                  ready && finish && !finishDismissed(finish.date)
+                    ? {
+                        remaining: finish.remaining,
+                        onOpen: () => setDate(finish.date),
+                        onDismiss: () => {
+                          dismissFinish(finish.date);
+                          setFinishHidden(finish.date);
+                        },
+                      }
+                    : undefined
+                }
               />
             ) : (
               <ObjectiveBoard
@@ -743,16 +755,6 @@ export default function TodayScreen() {
             )}
           </View>
         )}
-      {ready && isToday && finish && !finishDismissed(finish.date) && (
-        <FinishYesterday
-          remaining={finish.remaining}
-          onOpen={() => setDate(finish.date)}
-          onDismiss={() => {
-            dismissFinish(finish.date);
-            setFinishHidden(finish.date);
-          }}
-        />
-      )}
       {ready && date === yesterday && (
         <View style={{ alignItems: 'flex-start' }}>
           <LinkButton

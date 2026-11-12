@@ -6,7 +6,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 ### Added
 
-- Finish yesterday: while yesterday is still open, one line under Today's hero says how much is left and opens that day, where ticking the rest keeps the Day Clear run. An x hides it; only yesterday is offered, never an older day or the demo.
+- Finish yesterday: while yesterday is still open, a line in Today's hero card says how much is left and opens that day, where ticking the rest keeps the Day Clear run. An x hides it; only yesterday is offered, never an older day or the demo.
 - The Day Clear streak details show a month calendar: cleared days as seals, protected days ringed, today ringed in orange, and a line with the days cleared that month. Arrows go back month by month, and tapping a day opens it.
 
 ### Changed

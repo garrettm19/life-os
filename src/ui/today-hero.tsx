@@ -5,6 +5,7 @@ import { WeekDayMark } from '../domain/moments';
 import { styles } from './components';
 import { ClearedTitle } from './mission';
 import { PressableScale } from './motion';
+import { Glyph } from './settings-icon';
 import { DayProgressBody } from './objective-board';
 import { WeekStrip, weekLabel } from './week-strip';
 import { depth, fonts, palette, radius, type, useWash } from './theme';
@@ -109,6 +110,7 @@ export function TodayHero({
   hasActive,
   celebrate,
   onOpenStreak,
+  finish,
 }: {
   progress: DayProgress;
   /** The Day Clear streak through today: an open today holds the run into it. */
@@ -120,9 +122,15 @@ export function TodayHero({
   /** The day was just cleared on this screen: the headline rises in once. */
   celebrate: boolean;
   onOpenStreak: () => void;
+  /**
+   * Yesterday can still be finished (`yesterdayOpen`): its line takes the note's place in the card,
+   * so it adds no row above the list.
+   */
+  finish?: { remaining: number; onOpen: () => void; onDismiss: () => void };
 }) {
   const cleared = progress.cleared;
-  const lead = heroLead(streak, week, cleared);
+  const led = heroLead(streak, week, cleared);
+  const lead = finish ? { ...led, note: null } : led;
   const sunrise = useWash(
     (c) =>
       `radial-gradient(ellipse at 0% 0%, ${c.washWarm} 0%, ${c.washRose} 30%, ${c.surface} 72%)`,
@@ -213,6 +221,37 @@ export function TodayHero({
           </View>
         )}
       </View>
+      {finish && (
+        <View
+          testID="finish-yesterday"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            // The 44 pt targets reach into the card's gaps, so the line takes a note's height.
+            marginTop: -16,
+            marginBottom: -12,
+            marginRight: -12,
+          }}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`Finish yesterday: ${finish.remaining} still open`}
+            onPress={finish.onOpen}
+            containerStyle={{ flexShrink: 1 }}
+            style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text maxFontSizeMultiplier={1.4} style={{ ...type.meta, color: palette.label2 }}>
+              Yesterday · {finish.remaining} still open ·{' '}
+              <Text style={{ ...fonts.semibold, color: palette.label }}>Finish ›</Text>
+            </Text>
+          </PressableScale>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Hide Finish yesterday"
+            onPress={finish.onDismiss}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Glyph name="close" color={palette.label3} size={12} />
+          </PressableScale>
+        </View>
+      )}
       <PressableScale
         accessibilityRole="button"
         accessibilityLabel={`${weekLabel(week)} Streak details.`}
