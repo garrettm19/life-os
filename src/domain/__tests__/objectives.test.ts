@@ -833,6 +833,17 @@ describe('finish yesterday', () => {
     expect(yesterdayOpen(state({ [monday]: oneDone }), wednesday)).toBeNull();
   });
 
+  test('never offers a day whose open part cannot be ticked: a due timed session left unplaced', () => {
+    const run = withRun();
+    const done = finishChecklists(monday, run);
+    expect(dayProgress(done, run, monday)).toMatchObject({ remaining: 1, missingTimed: 1 });
+    const base = { ...emptyState(), source: 'personal' as const, programs: run };
+    expect(yesterdayOpen({ ...base, days: { [monday]: done } }, tuesday)).toBeNull();
+    // With a habit open too, finishing it still could not clear the day: nothing is offered.
+    const open = setStatus(done, done.blocks[0].id, 'planned', now);
+    expect(yesterdayOpen({ ...base, days: { [monday]: open } }, tuesday)).toBeNull();
+  });
+
   test('finishing yesterday brings the run back with no other step', () => {
     const before = {
       [sunday]: finishChecklists(sunday, programs),

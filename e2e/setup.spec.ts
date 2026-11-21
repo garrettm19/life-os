@@ -3,7 +3,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { trainingState } from '../src/test-support/fixtures';
 import { demoState } from '../src/domain/demo';
 import { defaultTradingProfile } from '../src/domain/trading';
-import { chooseSetup, importSetup, loadSetupFromToday } from './support/files';
+import { chooseSetup, importSetup, loadSetupFromToday, restoreFromToday } from './support/files';
+import { encodeBackup } from '../src/domain/backup';
 import { saved, seed } from './support/storage';
 
 // Setup import from Settings, with synthetic setup files only.
@@ -284,9 +285,9 @@ test('with a plan, the import keeps Choose setup file and folds the paste box', 
   await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Paste instead', exact: true }).click();
   await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toBeVisible();
-  // The widget caption is one line; the details sit in their own fold.
+  // The widget caption says what the switch does and what it reveals; the rest is in a fold.
   await expect(
-    page.getByText('Shows a check on the widget when the day is cleared.', { exact: true }),
+    page.getByText(/^Shows a check on the widget when the day is cleared\. It counts private/),
   ).toBeVisible();
   await expect(page.getByText(/^Small and medium show your next action/)).toHaveCount(0);
   await page.getByRole('button', { name: 'About widgets. Show', exact: true }).click();
@@ -320,4 +321,47 @@ test('the About card names the version in app.json, from a web export built afte
   await seed(page, trainingState(), { clock: new Date(2026, 10, 9, 9), route: '/settings' });
   await expect(page.getByTestId('about')).toContainText(`Life OS`);
   await expect(page.getByText(`Version ${app.expo.version}`, { exact: true })).toBeAttached();
+});
+
+test('a routine paused from Settings while Programs waits underneath is folded on return', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/programs' });
+  await expect(
+    page.getByRole('button', { name: 'Configure Upper body', exact: true }),
+  ).toBeVisible();
+  // Settings opens on top of Programs, which stays mounted out of view.
+  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Import and pause the existing routines with the same names' })
+    .click();
+  await expect(page.getByText('Setup imported', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  // Back on Programs: the routine paused meanwhile waits in its program's closed fold.
+  await expect(
+    page.getByRole('button', { name: 'Paused in Training, 1. Show', exact: true }),
+  ).toBeVisible();
+});
+
+test('the widget switch says, beside it, that Day Cleared counts private objectives', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/settings' });
+  // In view with the switch, not only inside About widgets.
+  await expect(
+    page.getByText(
+      /counts private objectives too, and anyone who sees your Home Screen can see it/,
+    ),
+  ).toBeVisible();
+});
+
+test('a setup error on the empty Today clears when Restore is chosen next', async ({ page }) => {
+  await page.clock.install({ time: new Date(2026, 10, 9, 9) });
+  await page.goto('/');
+  await loadSetupFromToday(page, { format: 'other' });
+  const error = page.getByText('Choose a Life OS setup file (life-os-setup-v1).', { exact: true });
+  await expect(error).toBeVisible();
+  await restoreFromToday(page, encodeBackup(trainingState()));
+  await expect(error).toHaveCount(0);
 });

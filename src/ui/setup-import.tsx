@@ -53,6 +53,8 @@ export function useSetupImport({
     }
   };
   const choose = async () => {
+    // A new choice starts clean: the last file's error goes.
+    onError(null);
     try {
       const text = await pickSetup();
       if (text !== null) await importText(text);

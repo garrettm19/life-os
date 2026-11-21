@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { encodeBackup } from '../domain/backup';
 import { exportBackup } from '../data/export-backup';
 import { useApp } from '../state/app-state';
@@ -15,6 +15,9 @@ export function useBackupExport() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [unconfirmed, setUnconfirmed] = useState(false);
+  // One export at a time: a second tap while the share sheet is open would overwrite and then
+  // delete the file the first one is sharing. A ref, so a tap in the same frame sees it too.
+  const running = useRef(false);
   // Only the time of the export is kept, for the backup reminder; it never travels in a backup.
   const recordBackup = useCallback(() => {
     const at = new Date().toISOString();
@@ -26,6 +29,8 @@ export function useBackupExport() {
     setUnconfirmed(false);
   }, []);
   const save = async () => {
+    if (running.current) return;
+    running.current = true;
     setWorking(true);
     reset();
     clearError();
@@ -41,6 +46,7 @@ export function useBackupExport() {
           : 'Could not export the backup. Your saved data has not changed.',
       );
     } finally {
+      running.current = false;
       setWorking(false);
     }
   };

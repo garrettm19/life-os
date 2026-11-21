@@ -357,6 +357,7 @@ export function LinkButton({
   onPress,
   tone = 'text',
   expanded,
+  disabled = false,
 }: {
   title: string;
   label?: string;
@@ -368,8 +369,10 @@ export function LinkButton({
   tone?: 'text' | 'dim' | 'pill';
   /** For a link that shows or hides something below it. */
   expanded?: boolean;
+  /** Off while its own work runs (an export), on top of the app's busy state. */
+  disabled?: boolean;
 }) {
-  const busy = useBusy();
+  const busy = useBusy() || disabled;
   return (
     <PressableScale
       accessibilityRole="button"

@@ -10,7 +10,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - The Day Clear streak details show a month calendar: cleared days as seals, protected days ringed, today ringed in orange, and a line with the days cleared that month. Arrows go back month by month, and tapping a day opens it.
 
 - On Sunday afternoon and Monday, Today asks "Two minutes on your week?" when the week has at least four recorded days and no review, and opens the review editor. It never shows for the demo or beside an open money review.
-- Backup, Settings and Today say when a backup passes 70% of its 20 MB limit, before an export would be refused.
+- Backup, Settings and Today say when a backup passes 70% of its 20 MB limit, before an export would be refused, and say plainly when it is over the limit.
 
 - A block added by hand on Today can be deleted from its sheet, after one confirm, on today or later. The plan it left is kept as a revision; a routine's occurrence and a past day still only skip.
 
@@ -20,7 +20,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 - Today shows at most one housekeeping line: the weekly review, a backup that is due, or a large backup, in that order.
 - The backup reminder on Today exports in one tap. On iPhone, Saved it records the backup and Not now hides the line until the next launch.
-- Load my setup on the empty Today opens Files and previews the setup in place, so a setup is restored in two taps; with no program yet, Today no longer shows More for today.
+- Load my setup on the empty Today opens Files and previews the setup in place, so a setup is restored in two taps; on an empty device, Today no longer shows More for today under the welcome card.
 
 - The first clear after a run ended says Back on track in the celebration, and with no run going and nothing cleared this week Today's hero names the next step ("Clear today to start a new run").
 - The streak details no longer list the last 14 days as rows, open with a four-line explainer (now behind About streaks) or repeat the best run in words.
@@ -35,7 +35,7 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 - Body weight in How far you've come says which way it moved since the first weigh-in, in its unit ("Down 3.2 lb since Sep 30"), instead of two weights side by side. Every "since" in that card gives the date the same way, without the weekday.
 - Time fields take the time as you would say it: 7:30 AM, 7pm or 19:30. A line under the field says how it was read ("Reads as 7:00 PM"), so a wrong AM or PM shows before Save, and editing prefills the 12-hour form. Bare digits such as 730 are refused because they read two ways. For a bedtime or a latest finish, 12 AM means midnight at the end of the day. Trading time fields are unchanged.
 - A workout card shows one load: once there is an earlier session the header gives the sets and reps, and the Last line and the prefilled sets give the load. A load of 0 reads Bodyweight.
-- Settings: the widget card says what its switch does in one line, with the details in About widgets, and once a plan exists the setup import keeps Choose setup file in view and puts the paste box behind Paste instead.
+- Settings: the widget card says what its switch does and that Day Cleared counts private objectives and shows to anyone who sees the Home Screen, with the rest of the widget details in About widgets, and once a plan exists the setup import keeps Choose setup file in view and puts the paste box behind Paste instead.
 - One name per concept: Week says Not recorded for a day never opened, as Today and the streak details do; the streak details are titled Day Clear streak; with no run going they say "Clear a day to start a new run" instead of "New run started"; and the best run under Best reads "21 days".
 
 ### Fixed

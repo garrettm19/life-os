@@ -189,9 +189,10 @@ export default function TodayScreen() {
   // The demo replaces everything, so it is offered only when there is nothing to lose.
   const blank = isBlank(state);
   // Restore my backup on the empty Today: after a reinstall or on a new phone, the first thing.
-  const restore = useRestore();
-  // Load my setup opens Files here and previews the file in place, as Settings does.
+  // Load my setup opens Files here and previews the file in place, as Settings does. Choosing a
+  // backup clears what a setup file said.
   const [setupError, setSetupError] = useState<string | null>(null);
+  const restore = useRestore(() => setSetupError(null));
   const setup = useSetupImport({ onError: setSetupError, onImported: () => setSetupError(null) });
   const today = localDate(now);
   const setDate = (next: string) => setSelection({ base, date: next });
@@ -317,17 +318,24 @@ export default function TodayScreen() {
     if (!editing) return;
     const target = editingDate ?? date;
     try {
-      const okay = await change((s) =>
-        withDay(s, removeBlock(s.days[target], editing.id, localDate(), new Date().toISOString())),
+      // Checked here first, so a refusal (the block is gone, or the day is now past) is said
+      // beside the form instead of only as the page's error.
+      removeBlock(
+        state.days[target] ?? { date: target, blocks: [], revisions: [] },
+        editing.id,
+        localDate(),
       );
-      if (okay) {
-        setConfirmBlockDelete(false);
-        setEditing(null);
-      }
     } catch (e) {
       setConfirmBlockDelete(false);
       setFormError(e instanceof Error ? e.message : 'Could not delete this block.');
+      return;
     }
+    const okay = await change((s) =>
+      withDay(s, removeBlock(s.days[target], editing.id, localDate(), new Date().toISOString())),
+    );
+    // A failed save closes the confirm too; the block stays and the save error says why.
+    setConfirmBlockDelete(false);
+    if (okay) setEditing(null);
   };
   const save = async () => {
     try {
@@ -990,8 +998,9 @@ export default function TodayScreen() {
         )}
       {ready && isToday && <HousekeepingLine now={now} />}
       {/* The list comes first; everything else waits here, one tap away. */}
-      {/* With no program there is nothing to plan or log yet: the welcome card is the next step. */}
-      {(state.programs.length > 0 || !isToday || !ready) && (
+      {/* Only on an empty device does the welcome card stand alone: with saved days but no
+          program, other days, the log and Add block stay one tap away. */}
+      {!(ready && isToday && blank) && (
         <Disclosure title={moreTitle} summary={moreSummary}>
           <View style={{ gap: 16 }}>
             {/* The date the header leaves out, other days, and the Day Clear streak's details. */}

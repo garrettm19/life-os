@@ -67,7 +67,10 @@ export function housekeepingLine(
   if (state.source !== 'demo' && backupSizeWarning(measured))
     return {
       kind: 'size',
-      text: `Your backup is ${Math.round((measured! / MAX_BACKUP_BYTES) * 100)}% of its 20 MB limit ›`,
+      text:
+        measured! > MAX_BACKUP_BYTES
+          ? 'Your backup is over its 20 MB limit ›'
+          : `Your backup is ${Math.round((measured! / MAX_BACKUP_BYTES) * 100)}% of its 20 MB limit ›`,
     };
   return null;
 }

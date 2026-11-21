@@ -63,6 +63,7 @@ export function HousekeepingLine({ now }: { now: Date }) {
           title={line.text}
           label={`${line.text} Export a backup now.`}
           tone="dim"
+          disabled={backup.working}
           onPress={() => void backup.save()}
         />
       ) : (

@@ -454,13 +454,15 @@ export default function ProgramsScreen() {
   };
   useFocusEffect(
     useCallback(() => {
+      // What is paused is worked out as Programs comes into view, from the data as it is now, so
+      // a routine paused elsewhere meanwhile (a setup import in Settings) is folded on return.
+      setShown(null);
       return () => {
         setEditing(null);
         setDraft(null);
         setPlanFor(null);
-        // The paused folds close again, and are worked out afresh, for the next visit.
+        // The paused folds close again for the next visit.
         setVisit((v) => v + 1);
-        setShown(null);
       };
     }, []),
   );

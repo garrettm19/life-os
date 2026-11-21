@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { openBasic } from './support/basic';
 import { nextMonday } from './support/dates';
 import { studyState } from '../src/test-support/fixtures';
+import { emptyState } from '../src/domain/model';
+import { makeBlock } from '../src/domain/planner';
 import { failSaves, restoreSaves, SAVE_FAILED_TEXT, saved, seed } from './support/storage';
 import { openMore } from './support/today';
 
@@ -206,4 +208,38 @@ test('a block added by hand can be deleted after one confirm, with a revision ke
   const day = (await saved(page)).days[date];
   expect(day.blocks.some((b) => b.title === 'Example errand')).toBe(false);
   expect(day.revisions.at(-1)!.reason).toBe('Remove block');
+});
+
+test('with history but no programs, Today still offers other days, the log and Add block', async ({
+  page,
+}) => {
+  const state = emptyState();
+  state.source = 'personal';
+  state.days[date] = {
+    date,
+    blocks: [makeBlock(`${date}:manual:kept`, 'Example kept block', 600, 30)],
+    revisions: [],
+  };
+  await seed(page, state, { clock: new Date(`${date}T09:00:00`), route: '/' });
+  await expect(page.getByRole('button', { name: /^More for today/ })).toBeVisible();
+});
+
+test('a delete that cannot save closes its confirm and keeps the block', async ({ page }) => {
+  await openBasic(page, date);
+  await openMore(page);
+  await page.getByRole('button', { name: 'Add block', exact: true }).click();
+  await page.getByLabel('Block name', { exact: true }).fill('Example errand');
+  await page.getByLabel('Start time').fill('4pm');
+  await page.getByRole('button', { name: 'Save block', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Example errand' }).click();
+  await failSaves(page, 'Synthetic delete failure');
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click();
+  // The confirm closes, the sheet stays, and the block is still on the day.
+  await expect(page.getByText("Delete Example errand? It leaves this day's plan.")).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete block', exact: true })).toBeVisible();
+  await restoreSaves(page);
+  expect((await saved(page)).days[date].blocks.some((b) => b.title === 'Example errand')).toBe(
+    true,
+  );
 });

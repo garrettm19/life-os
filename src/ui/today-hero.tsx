@@ -145,7 +145,9 @@ export function TodayHero({
       {!lead.atBest && <Text style={fonts.figure}>{lead.best}</Text>}
     </Text>
   );
-  const noteRow = !finish && (lead.figure !== null || lead.note || lead.best !== null);
+  // The streak figure always keeps its row (VoiceOver reads it from the headline); with yesterday
+  // to finish, the note gives way and the best run moves to the Finish line.
+  const noteRow = lead.figure !== null || (!finish && (lead.note || lead.best !== null));
   const sunrise = useWash(
     (c) =>
       `radial-gradient(ellipse at 0% 0%, ${c.washWarm} 0%, ${c.washRose} 30%, ${c.surface} 72%)`,
@@ -220,7 +222,7 @@ export function TodayHero({
                 {lead.note ?? ''}
               </Text>
             )}
-            {bestText}
+            {!finish && bestText}
           </View>
         )}
       </View>

@@ -355,10 +355,11 @@ export function protectionLabel(protection: DayProtection): string {
 }
 
 /**
- * Yesterday, when it can still be finished from Today: saved, not protected, not the demo, and
- * open with something left to tick. Only yesterday, never an older day. Ticking it is honest: the
- * streak is derived, so a cleared yesterday counts with no other step. `remaining` is from
- * `dayProgress`, so it never differs from what that day's page shows.
+ * Yesterday, when it can still be finished from Today: saved, not protected, not the demo, open
+ * with something left to tick, and with no due timed session missing from its board. Only
+ * yesterday, never an older day. Ticking it is honest: the streak is derived, so a cleared
+ * yesterday counts with no other step. `remaining` is from `dayProgress`, so it never differs from
+ * what that day's page shows.
  */
 export function yesterdayOpen(
   state: State,
@@ -368,8 +369,11 @@ export function yesterdayOpen(
   const date = shiftDate(today, -1);
   const day = state.days[date];
   if (!day || day.protection || dayOutcome(state, date) !== 'open') return null;
-  const remaining = dayProgress(day, state.programs, date).remaining;
-  return remaining > 0 ? { date, remaining } : null;
+  const progress = dayProgress(day, state.programs, date);
+  // A due timed session left off the board cannot be ticked on a past day, so such a day can no
+  // longer clear: offering it would open a page with no way to finish.
+  if (progress.missingTimed > 0) return null;
+  return progress.remaining > 0 ? { date, remaining: progress.remaining } : null;
 }
 
 /** One day of a month calendar: its outcome by the one rule, or later for a day still to come. */

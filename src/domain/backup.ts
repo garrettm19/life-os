@@ -92,7 +92,11 @@ export function withoutInstallationChoices(state: State): State {
   return { ...state, settings, ruleBooks };
 }
 
-export function encodeBackup(state: State, createdAt = new Date().toISOString()): string {
+/**
+ * The backup file's text, validated like an export but not held to the size limit, so its size can
+ * be measured. Only `encodeBackup` makes a file to save.
+ */
+export function backupText(state: State, createdAt = new Date().toISOString()): string {
   timestamp(createdAt);
   const backup: Backup = {
     format: 'life-os-backup',
@@ -100,7 +104,11 @@ export function encodeBackup(state: State, createdAt = new Date().toISOString())
     createdAt,
     state: withoutInstallationChoices(validateBackupState(state)),
   };
-  const raw = JSON.stringify(backup);
+  return JSON.stringify(backup);
+}
+
+export function encodeBackup(state: State, createdAt = new Date().toISOString()): string {
+  const raw = backupText(state, createdAt);
   try {
     checkJsonSize(raw, MAX_BACKUP_BYTES, 'backup');
   } catch {

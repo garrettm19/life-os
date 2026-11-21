@@ -10,6 +10,7 @@ import { useAnnouncement } from '../ui/announce';
 import { RestoreDone, RestoreSheet, useRestore } from '../ui/restore-sheet';
 import { useBackupExport } from '../ui/use-backup-export';
 import { measureBackup } from '../ui/backup-size';
+import { MAX_BACKUP_BYTES } from '../domain/backup';
 import { backupSizeWarning } from '../domain/housekeeping';
 
 export default function BackupScreen() {
@@ -57,9 +58,11 @@ export default function BackupScreen() {
               Back up
             </Text>
             <Text style={type.caption}>Last backup: {lastBackupText(state, new Date())}</Text>
-            {backupSizeWarning(bytes) && (
+            {bytes !== null && backupSizeWarning(bytes) && (
               <Text style={type.caption}>
-                Size: {(bytes / 1_000_000).toFixed(1)} MB of the 20 MB a backup can hold
+                {bytes > MAX_BACKUP_BYTES
+                  ? `Size: ${(bytes / 1_000_000).toFixed(1)} MB, over the 20 MB a backup can hold. Export is refused until it is smaller; nothing on this phone changes.`
+                  : `Size: ${(bytes / 1_000_000).toFixed(1)} MB of the 20 MB a backup can hold`}
               </Text>
             )}
           </View>

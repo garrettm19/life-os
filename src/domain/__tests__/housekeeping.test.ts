@@ -120,5 +120,10 @@ describe('the one housekeeping line', () => {
       text: 'Your backup is 80% of its 20 MB limit ›',
     });
     expect(housekeepingLine(backedUp, at('2026-11-10', 9), null)).toBeNull();
+    // Past the limit it says so plainly, never a figure over 100%.
+    expect(housekeepingLine(backedUp, at('2026-11-10', 9), MAX_BACKUP_BYTES + 1)).toEqual({
+      kind: 'size',
+      text: 'Your backup is over its 20 MB limit ›',
+    });
   });
 });

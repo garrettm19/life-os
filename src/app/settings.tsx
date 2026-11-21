@@ -271,9 +271,11 @@ export default function SettingsScreen() {
           tone="sky"
           title="Backup and restore"
           detail={`Last backup: ${lastBackupText(state, new Date())}${
-            backupSizeWarning(bytes)
-              ? ` · ${Math.round((bytes / MAX_BACKUP_BYTES) * 100)}% of the 20 MB limit`
-              : ''
+            bytes === null || !backupSizeWarning(bytes)
+              ? ''
+              : bytes > MAX_BACKUP_BYTES
+                ? ' · over the 20 MB limit'
+                : ` · ${Math.round((bytes / MAX_BACKUP_BYTES) * 100)}% of the 20 MB limit`
           }`}
           onPress={() => router.push('/backup')}
         />
@@ -287,7 +289,7 @@ export default function SettingsScreen() {
       </Group>
       <Group
         title="Home Screen widget"
-        footer="Shows a check on the widget when the day is cleared.">
+        footer="Shows a check on the widget when the day is cleared. It counts private objectives too, and anyone who sees your Home Screen can see it.">
         <Toggle
           inset
           title="Show Day Cleared"

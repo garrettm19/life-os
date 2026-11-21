@@ -7,6 +7,8 @@ import {
   shortDate,
   timeInput,
   weekStartOf,
+  emptyState,
+  validateSettings,
 } from '../model';
 
 // Calendar helpers on local date keys. Synthetic dates only; the suite runs in several zones.
@@ -104,5 +106,18 @@ describe('typed times of day', () => {
     expect(readTime('')).toBeNull();
     expect(readTime('730')).toBeNull();
     expect(readTime('7pm')).toBe(1140);
+  });
+});
+
+describe('the bedtime message', () => {
+  it('names midnight the way the time fields take it', () => {
+    const bad = { ...emptyState().settings, wake: 600, bedtime: 540 };
+    expect(() => validateSettings(bad)).toThrow(
+      'Bedtime must follow the start of the day, within this day (12 AM means midnight).',
+    );
+    // 12 AM in the bedtime field is the end of the day, which the message promises.
+    expect(() =>
+      validateSettings({ ...emptyState().settings, bedtime: parseTime('12 AM', true) }),
+    ).not.toThrow();
   });
 });

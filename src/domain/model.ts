@@ -1023,7 +1023,7 @@ export function validateSettings(s: Settings) {
     s.wake >= s.bedtime
   )
     throw new Error(
-      'Bedtime must follow the start of the day, within this day (24:00 means midnight).',
+      'Bedtime must follow the start of the day, within this day (12 AM means midnight).',
     );
   for (const k of ['workStart', 'workEnd', 'scrumStart', 'thursdayMeetingStart'] as const) {
     if (s[k] !== null && (!Number.isInteger(s[k]) || s[k]! < 0 || s[k]! >= 1440))
