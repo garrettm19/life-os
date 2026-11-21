@@ -4,27 +4,26 @@ All notable changes to Life OS are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-21
+
+A calmer, more forgiving daily loop: an open yesterday can be finished from Today, the Day Clear streak has a month calendar, times can be typed as they are said, backups and setup take one tap, Progress no longer dips mid-week or shows a miss louder than a win, paused routines fold away on Programs, and saved records stay true through edits, unit changes and deletions. The saved data format is unchanged (version 5).
+
 ### Added
 
 - Finish yesterday: while yesterday is still open, a line in Today's hero card says how much is left and opens that day, where ticking the rest keeps the Day Clear run. An x hides it; only yesterday is offered, never an older day or the demo.
 - The Day Clear streak details show a month calendar: cleared days as seals, protected days ringed, today ringed in orange, and a line with the days cleared that month. Arrows go back month by month, and tapping a day opens it.
-
 - On Sunday afternoon and Monday, Today asks "Two minutes on your week?" when the week has at least four recorded days and no review, and opens the review editor. It never shows for the demo or beside an open money review.
 - Backup, Settings and Today say when a backup passes 70% of its 20 MB limit, before an export would be refused, and say plainly when it is over the limit.
-
 - A block added by hand on Today can be deleted from its sheet, after one confirm, on today or later. The plan it left is kept as a revision; a routine's occurrence and a past day still only skip.
 
 ### Changed
 
 - Programs lists each program's active routines first, with paused ones behind a closed Paused fold, and moves programs whose routines are all paused into a Paused programs fold at the foot. The folds close on every visit, a search shows everything, and a routine paused during a visit stays in place.
-
 - Today shows at most one housekeeping line: the weekly review, a backup that is due, or a large backup, in that order.
 - The backup reminder on Today exports in one tap. On iPhone, Saved it records the backup and Not now hides the line until the next launch.
 - Load my setup on the empty Today opens Files and previews the setup in place, so a setup is restored in two taps; on an empty device, Today no longer shows More for today under the welcome card.
-
 - The first clear after a run ended says Back on track in the celebration, and with no run going and nothing cleared this week Today's hero names the next step ("Clear today to start a new run").
 - The streak details no longer list the last 14 days as rows, open with a four-line explainer (now behind About streaks) or repeat the best run in words.
-
 - Deleting a saved record (a log entry, weight, money review, skill checkpoint or weekly review) asks once with a small card first, so nothing disappears on one tap. The card comes fully into view with focus on its line, Save steps aside while it is open, and Keep it returns to Delete. Removing a recorded study session or circuit uses the same card.
 - Deleting a weight or money review that completed its objective names the objective and its day, says when that day would no longer count as cleared, and for a past day recommends keeping the Done.
 - A past day that was not cleared reads as a quiet fact: its "Not cleared" line is secondary text instead of the orange "now" color, and Not cleared in the streak details is faint and regular, never louder than a green Cleared. Today, still in progress, keeps primary text there.
