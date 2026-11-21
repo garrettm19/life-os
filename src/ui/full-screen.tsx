@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Modal, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from './components';
+import { Button, RevealBoundary } from './components';
 import { palette, type } from './theme';
 
 /**
@@ -41,7 +41,7 @@ export function FullScreen({
           edges={['top', 'bottom', 'left', 'right']}
           style={{ flex: 1, backgroundColor: palette.canvas }}>
           <View style={{ flex: 1, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-            {children}
+            <RevealBoundary>{children}</RevealBoundary>
           </View>
         </SafeAreaView>
         {overlay}

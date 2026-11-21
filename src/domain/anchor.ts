@@ -96,7 +96,7 @@ export function withAnchorTime(
   from: string = date,
 ): Routine {
   if (!Number.isInteger(upBy) || upBy < 0 || upBy > 1439)
-    throw new Error('Enter the Up by time as 24-hour time, for example 07:10.');
+    throw new Error('Enter the Up by time, for example 7:10 AM.');
   const history = [...(routine.anchor?.history ?? [])];
   const last = history.at(-1);
   if (last?.upBy === upBy) return routine;
@@ -246,7 +246,7 @@ export function correctMorning(day: Day, blockId: string, upAt: number | null): 
   if (!block || block.status !== 'done') throw new Error('Tick it first, then correct the time.');
   if (upAt !== null) {
     if (!Number.isInteger(upAt) || upAt < 0 || upAt > 1439)
-      throw new Error('Enter the time as 24-hour time, for example 07:05.');
+      throw new Error('Enter the time, for example 7:05 AM.');
     const ticked = tickMinutes(block.actualAt, day.date);
     if (ticked !== null && upAt > ticked) throw new Error('Enter a time before the tick.');
   }

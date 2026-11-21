@@ -1,6 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { decodeState } from '../data';
-import { Program, Routine, State, emptyState } from '../model';
+import { Program, Routine, State, emptyState, nextSource } from '../model';
+import { demoState } from '../demo';
 import { editBlock, ensureChecklistDay, generateDay, setStatus } from '../planner';
 import {
   LOCKED_OCCURRENCE_REASON,
@@ -628,4 +629,25 @@ test('a checklist item that becomes timed never keeps a stored start as its plac
   expect(block.checklist).toBeUndefined();
   expect(block.start).toBeNull();
   expect(block.reason).toBe(TIMED_PLACE_REASON);
+});
+
+test("an edit is the user's own plan, except inside the demo, which stays the demo", () => {
+  expect(nextSource(emptyState())).toBe('personal');
+  expect(nextSource({ ...emptyState(), source: 'personal' })).toBe('personal');
+  expect(nextSource({ ...emptyState(), source: 'demo' })).toBe('demo');
+
+  // A program or routine added on an empty device makes the plan personal.
+  expect(upsertProgram(emptyState(), program([])).source).toBe('personal');
+  expect(upsertRoutine(emptyState(), program([]), habit(), now).source).toBe('personal');
+
+  // Inside the demo, a program renamed and a routine edited keep the DEMO label and its history.
+  const demo = demoState(monday);
+  const first = demo.programs[0];
+  const renamed = upsertProgram(demo, { ...first, title: 'Renamed program' });
+  expect(renamed.source).toBe('demo');
+  expect(renamed.programs[0].title).toBe('Renamed program');
+  const routine = first.routines[0];
+  const edited = upsertRoutine(demo, first, { ...routine, title: 'Edited routine' }, now);
+  expect(edited.source).toBe('demo');
+  expect(edited.measurements).toBe(demo.measurements);
 });

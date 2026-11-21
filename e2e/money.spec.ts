@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { MoneyReview, State, displayDate } from '../src/domain/model';
+import { dayOutcome } from '../src/domain/objectives';
+import { makeBlock } from '../src/domain/planner';
 import { trainingState } from '../src/test-support/fixtures';
 import { openFold, showJourney, stepTo } from './support/progress';
 import { saved, seed } from './support/storage';
@@ -169,4 +171,132 @@ test('the review keeps Save near the figures: last values are buttons, the goal 
   await page.getByRole('button', { name: 'Save review', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Undo Money review', exact: true })).toBeVisible();
   expect((await saved(page)).moneyReviews.at(-1)).toMatchObject({ debt: 500000, goalId: 'money' });
+});
+
+/** Every button in the open confirm sits fully inside the viewport. */
+async function confirmInView(page: Page) {
+  const viewport = page.viewportSize()!;
+  const buttons = page.getByTestId('confirm-remove').getByRole('button');
+  await expect(buttons.first()).toBeVisible();
+  for (const button of await buttons.all()) {
+    const box = (await button.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  }
+}
+
+/** The accessible name, or the text, of the element holding focus. */
+const focused = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    return el && el !== document.body ? (el.getAttribute('aria-label') ?? el.innerText) : null;
+  });
+
+test('deleting a review that completed the objective asks first, and undo leaves no orphan Done', async ({
+  page,
+}) => {
+  await open(page);
+  const record = page.getByRole('button', { name: 'Record Money review', exact: true });
+  const reopen = page.getByRole('button', { name: /^Open Money review/ });
+  const status = async () => {
+    const state = await saved(page);
+    const review = state.moneyReviews.find((r) => r.date === SUN);
+    return {
+      review: !!review,
+      status: Object.values(state.days)
+        .flatMap((d) => d.blocks)
+        .find((b) => b.title === 'Money review' && b.id.startsWith(SUN))?.status,
+    };
+  };
+  for (const choice of ['Delete and undo Done', 'Delete, keep Done'] as const) {
+    await record.click();
+    await page.getByLabel('Total savings ($)', { exact: true }).fill('2400');
+    await page.getByRole('button', { name: 'Save review', exact: true }).click();
+    await expect(reopen).toBeVisible();
+    await reopen.click();
+    // Delete sits at the sheet's bottom edge, so the card that takes its place starts below it.
+    // The sheet animates in, so the scroll is repeated until Delete stays at the edge.
+    const ask = page.getByRole('button', { name: 'Delete this review', exact: true });
+    await expect
+      .poll(() =>
+        ask.evaluate((el) => {
+          let scroller = el.parentElement;
+          while (scroller && scroller.scrollHeight <= scroller.clientHeight)
+            scroller = scroller.parentElement;
+          const gap = el.getBoundingClientRect().bottom - scroller!.getBoundingClientRect().bottom;
+          scroller!.scrollTop += gap;
+          return Math.abs(gap);
+        }),
+      )
+      .toBeLessThan(1);
+    await ask.click();
+    // Nothing is deleted until a choice is made. The card names the objective and its day, comes
+    // fully into view with its line focused, and is the only decision on screen.
+    await expect(page.getByText(/^This review completed Money review today\./)).toBeVisible();
+    await confirmInView(page);
+    expect(await focused(page)).toMatch(/^This review completed Money review today\./);
+    await expect(page.getByRole('button', { name: 'Save correction', exact: true })).toHaveCount(0);
+    // Undo is the recommended choice for today, which can still be cleared again.
+    await expect(
+      page.getByTestId('confirm-remove').getByRole('button').first(),
+    ).toHaveAccessibleName('Delete and undo Done');
+    // Keep it closes the question and returns focus to the button that asked it.
+    await page.getByRole('button', { name: 'Keep it', exact: true }).click();
+    expect(await status()).toEqual({ review: true, status: 'done' });
+    await expect.poll(() => focused(page)).toBe('Delete this review');
+    await expect(page.getByRole('button', { name: 'Save correction', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Delete this review', exact: true }).click();
+    await page.getByRole('button', { name: choice, exact: true }).click();
+    if (choice === 'Delete and undo Done') {
+      await expect(record).toBeVisible();
+      expect(await status()).toEqual({ review: false, status: 'planned' });
+    } else {
+      await expect(reopen).toBeVisible();
+      expect(await status()).toEqual({ review: false, status: 'done' });
+    }
+  }
+});
+
+test('deleting a review that cleared a past day says so, and recommends keeping the Done', async ({
+  page,
+}) => {
+  const state = moneyState();
+  const blockId = `${NOV1}:routine:money-check`;
+  // Sunday, Nov 1: the money review was the day's one objective, completed by review b.
+  state.days[NOV1] = {
+    date: NOV1,
+    revisions: [],
+    blocks: [
+      {
+        ...makeBlock(blockId, 'Money review', null, null),
+        routineId: 'money-check',
+        checklist: true,
+        status: 'done',
+        actualAt: `${NOV1}T20:00:00.000Z`,
+      },
+    ],
+  };
+  state.moneyReviews = state.moneyReviews.map((r) =>
+    r.id === 'b' ? { ...r, occurrenceId: blockId } : r,
+  );
+  expect(dayOutcome(state, NOV1)).toBe('cleared');
+  await seed(page, state, { clock: new Date(2026, 10, 8, 18), route: '/review' });
+  await openFold(page, 'Money check-ins');
+  await page.getByRole('button', { name: `Edit money check-in for ${displayDate(NOV1)}` }).click();
+  await page.getByRole('button', { name: 'Delete this review', exact: true }).click();
+  await expect(
+    page.getByText(
+      `This review completed Money review on ${displayDate(NOV1)}. ${displayDate(NOV1)} would no longer count as cleared.`,
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await confirmInView(page);
+  // Keeping the Done comes first and is the filled choice; undoing it is still one tap away.
+  const buttons = page.getByTestId('confirm-remove').getByRole('button');
+  await expect(buttons).toHaveText(['Delete, keep Done', 'Delete and undo Done', 'Keep it']);
+  await page.getByRole('button', { name: 'Delete, keep Done', exact: true }).click();
+  const after = await saved(page);
+  expect(after.moneyReviews.map((r) => r.id)).toEqual(['a']);
+  expect(after.days[NOV1].blocks[0].status).toBe('done');
+  expect(dayOutcome(after, NOV1)).toBe('cleared');
 });

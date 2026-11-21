@@ -1,4 +1,4 @@
-import { test, expect } from '@jest/globals';
+import { describe, test, expect } from '@jest/globals';
 import {
   Block,
   Day,
@@ -24,6 +24,8 @@ import {
   overlaps,
   replanDay,
   setStatus,
+  isManualBlock,
+  removeBlock,
 } from '../planner';
 
 const monday = '2026-11-09',
@@ -539,5 +541,123 @@ test('a fixed checklist routine never blocks generation or replanning', () => {
   expect(regenerated.blocks.find((b) => b.routineId === 'walk')).toMatchObject({
     start: 780,
     reason: null,
+  });
+});
+
+describe('the block editor saves over what was recorded while it was open', () => {
+  const opened = makeBlock('d:manual:1', 'Call mom', 600, 30);
+  const start = (): Day => ({ date: monday, blocks: [copy(opened)], revisions: [] });
+  function copy(b: Block): Block {
+    return { ...b, steps: [...b.steps] };
+  }
+
+  test('a Done ticked meanwhile keeps done, its time and its corrected morning', () => {
+    let day = setStatus(start(), opened.id, 'done', '2026-11-09T15:00:00.000Z');
+    day = { ...day, blocks: day.blocks.map((b) => ({ ...b, upAt: 420 })) };
+    const saved = editBlock(day, { ...opened, title: 'Call Mom' }, settings);
+    expect(saved.blocks[0]).toMatchObject({
+      title: 'Call Mom',
+      status: 'done',
+      actualAt: '2026-11-09T15:00:00.000Z',
+      upAt: 420,
+    });
+  });
+
+  test('a stale copy carrying a Skip never replaces a stored Done', () => {
+    const day = setStatus(start(), opened.id, 'done', '2026-11-09T15:00:00.000Z');
+    const stale = { ...opened, status: 'skipped' as const, actualAt: '2026-11-09T14:00:00.000Z' };
+    expect(editBlock(day, stale, settings).blocks[0]).toMatchObject({
+      status: 'done',
+      actualAt: '2026-11-09T15:00:00.000Z',
+    });
+  });
+
+  test('a Skip recorded meanwhile survives', () => {
+    const day = setStatus(start(), opened.id, 'skipped', '2026-11-09T15:00:00.000Z');
+    const saved = editBlock(day, { ...opened, start: 660 }, settings);
+    expect(saved.blocks[0]).toMatchObject({
+      start: 660,
+      status: 'skipped',
+      actualAt: '2026-11-09T15:00:00.000Z',
+    });
+  });
+
+  test('where a moved occurrence came from is kept', () => {
+    const day = {
+      ...start(),
+      blocks: [{ ...copy(opened), movedFrom: '2026-11-08' }],
+    };
+    expect(editBlock(day, { ...opened, title: 'Call' }, settings).blocks[0].movedFrom).toBe(
+      '2026-11-08',
+    );
+  });
+
+  test('a new title and time are taken and saved as an Edit block revision', () => {
+    const saved = editBlock(
+      start(),
+      { ...opened, title: 'Call Mom', start: 660, duration: 45, fixed: true, reason: null },
+      settings,
+      '2026-11-09T09:00:00.000Z',
+    );
+    expect(saved.blocks[0]).toMatchObject({
+      title: 'Call Mom',
+      start: 660,
+      duration: 45,
+      fixed: true,
+      status: 'planned',
+    });
+    expect(saved.revisions).toEqual([
+      { at: '2026-11-09T09:00:00.000Z', reason: 'Edit block', blocks: [opened] },
+    ]);
+  });
+
+  test('the overlap check reads the stored status: a block skipped meanwhile holds no slot', () => {
+    let day: Day = { ...start(), blocks: [copy(opened), makeBlock('other', 'Other', 900, 60)] };
+    day = setStatus(day, 'other', 'skipped', '2026-11-09T08:00:00.000Z');
+    // The stale copy is still planned and lands on the opened block's slot (600–630). Read from
+    // the stored block, it is skipped and holds no slot, so the move is allowed and stays skipped.
+    const staleOther = makeBlock('other', 'Other moved', 610, 30);
+    expect(editBlock(day, staleOther, settings).blocks[1]).toMatchObject({
+      start: 610,
+      status: 'skipped',
+    });
+  });
+
+  test('a new block is added whole', () => {
+    const extra = { ...makeBlock('d:manual:2', 'Walk', 700, 20), optional: true };
+    const saved = editBlock(start(), extra, settings, '2026-11-09T09:00:00.000Z');
+    expect(saved.blocks.at(-1)).toEqual(extra);
+    expect(saved.revisions.at(-1)!.reason).toBe('Add block');
+  });
+});
+
+describe('removing a block added by hand', () => {
+  const date = '2026-11-10';
+  const now = new Date(2026, 10, 10, 9).toISOString();
+  const settings = emptyState().settings;
+  const manual = makeBlock(`${date}:manual:block-1`, 'Example errand', 600, 30);
+  const routine = {
+    ...makeBlock(`${date}:routine:walk`, 'Example walk', 660, 30),
+    routineId: 'walk',
+  };
+  const day = editBlock({ date, blocks: [routine], revisions: [] }, manual, settings, now);
+
+  test('removes it and keeps the plan it left as a revision', () => {
+    const next = removeBlock(day, manual.id, date, now);
+    expect(next.blocks.map((b) => b.id)).toEqual([routine.id]);
+    expect(next.revisions.at(-1)).toMatchObject({ reason: 'Remove block', at: now });
+    expect(next.revisions.at(-1)!.blocks.map((b) => b.id)).toEqual([routine.id, manual.id]);
+  });
+
+  test('removes a done one too, and Day Cleared is worked out without it', () => {
+    const done = setStatus(day, manual.id, 'done', now);
+    expect(removeBlock(done, manual.id, date, now).blocks).toHaveLength(1);
+  });
+
+  test("refuses a routine's occurrence and a past day", () => {
+    expect(() => removeBlock(day, routine.id, date, now)).toThrow(/added by hand/);
+    expect(() => removeBlock(day, manual.id, '2026-11-11', now)).toThrow(/past day/);
+    expect(isManualBlock(manual, date)).toBe(true);
+    expect(isManualBlock(routine, date)).toBe(false);
   });
 });

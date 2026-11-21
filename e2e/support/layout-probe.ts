@@ -98,10 +98,10 @@ export function probeLayout(page: Page): Promise<LayoutIssue[]> {
       const r = el.getBoundingClientRect();
       const box = seen(el);
       if (!box || box.bottom - box.top < r.height - 1) continue;
-      // The 28-day study and trading calendars are contiguous grids: each day is its whole column
+      // The 28-day study and trading calendars and the Day Clear month are contiguous grids: each day is its whole column
       // (no gaps between targets) and 44 pt tall, but seven columns cannot each be 44 pt wide on
       // the narrowest phones. A day's height is checked; its width only for a usable minimum.
-      const day = /^(study|trading)-day:/.test(el.getAttribute('data-testid') ?? '');
+      const day = /^(study|trading|month)-day:/.test(el.getAttribute('data-testid') ?? '');
       if (day ? r.height < 43.5 || r.width < 32 : r.height < 43.5 || r.width < 43.5)
         issues.push({
           kind: 'target',

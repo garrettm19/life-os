@@ -74,10 +74,19 @@ describe('callout', () => {
       text: '6 to clear the day',
       tone: 'text',
     });
-    expect(callout(progress({ done: 0, remaining: 2, total: 2 }))).toEqual({
-      text: '2 to clear the day',
+  });
+
+  it('says nothing beside an untouched count: 0/5 already says 5 to clear the day', () => {
+    expect(callout(progress({ done: 0, remaining: 2, total: 2 }))).toBeNull();
+    expect(callout(progress({ done: 0, skipped: 1, remaining: 4, total: 4 }))).toBeNull();
+    // The last one and a day waiting on timed sessions still say so.
+    expect(callout(progress({ done: 0, remaining: 1, total: 1 }))).toEqual({
+      text: 'One more to clear the day',
       tone: 'text',
     });
+    expect(callout(progress({ done: 0, remaining: 1, missingTimed: 1, total: 1 }))?.text).toBe(
+      'Not on the list yet',
+    );
   });
 
   it('says how close the day is: halfway, then the last one', () => {
@@ -134,15 +143,22 @@ describe('callout', () => {
       progress({ done: 6, remaining: 1, total: 7 }),
       progress({ done: 0, remaining: 1, missingTimed: 1, total: 1 }),
     ])
+      // A past miss is a quiet fact: never Ember, which means now.
       expect(callout(p, true)).toEqual({
         text: `Not cleared · ${p.remaining} not done`,
-        tone: 'now',
+        tone: 'quiet',
       });
     expect(callout(progress({ done: 1, remaining: 4, total: 5, protected: true }), true)).toEqual({
       text: '4 not done',
-      tone: 'text',
+      tone: 'quiet',
     });
     expect(callout(progress({ done: 2, total: 2, cleared: true }), true)).toBeNull();
+  });
+
+  it('keeps a past day with everything skipped quiet, and today’s in Ember', () => {
+    const allSkipped = progress({ done: 0, skipped: 2, remaining: 0, total: 0 });
+    expect(callout(allSkipped, true)).toEqual({ text: 'All skipped · not cleared', tone: 'quiet' });
+    expect(callout(allSkipped)).toEqual({ text: 'All skipped · not cleared', tone: 'now' });
   });
 });
 
@@ -151,8 +167,12 @@ describe('progressLabel', () => {
     expect(progressLabel(progress({ done: 1, remaining: 1, total: 2 }), true)).toBe(
       "Today's objectives. 1 of 2 objectives complete. One more to clear the day.",
     );
+    expect(progressLabel(progress({ done: 1, remaining: 3, total: 4 }), false)).toBe(
+      'Objectives. 1 of 4 objectives complete. 3 to clear the day.',
+    );
+    // An untouched day says its count once.
     expect(progressLabel(progress({ done: 0, remaining: 2, total: 2 }), false)).toBe(
-      'Objectives. 0 of 2 objectives complete. 2 to clear the day.',
+      'Objectives. 0 of 2 objectives complete.',
     );
   });
 

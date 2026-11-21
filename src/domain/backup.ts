@@ -23,15 +23,19 @@ export function backupName(now = new Date()): string {
   return `LifeOS-backup-${localDate(now)}-${time}.json`;
 }
 
-export function checkJsonSize(raw: string, maxBytes: number, label: string): void {
+/** The UTF-8 size of a text in bytes, counted up to `limit` (past it, the count stops). */
+export function utf8Bytes(raw: string, limit = Infinity): number {
   let bytes = 0;
-  if (raw.length <= maxBytes) {
-    for (const point of raw) {
-      const code = point.codePointAt(0)!;
-      bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
-      if (bytes > maxBytes) break;
-    }
-  } else bytes = maxBytes + 1;
+  for (const point of raw) {
+    const code = point.codePointAt(0)!;
+    bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+    if (bytes > limit) break;
+  }
+  return bytes;
+}
+
+export function checkJsonSize(raw: string, maxBytes: number, label: string): void {
+  const bytes = raw.length <= maxBytes ? utf8Bytes(raw, maxBytes) : maxBytes + 1;
   if (bytes > maxBytes) throw new Error(`Choose a ${label} file under ${maxBytes / 1_000_000} MB.`);
 }
 function timestamp(value: unknown): asserts value is string {
@@ -88,7 +92,11 @@ export function withoutInstallationChoices(state: State): State {
   return { ...state, settings, ruleBooks };
 }
 
-export function encodeBackup(state: State, createdAt = new Date().toISOString()): string {
+/**
+ * The backup file's text, validated like an export but not held to the size limit, so its size can
+ * be measured. Only `encodeBackup` makes a file to save.
+ */
+export function backupText(state: State, createdAt = new Date().toISOString()): string {
   timestamp(createdAt);
   const backup: Backup = {
     format: 'life-os-backup',
@@ -96,7 +104,11 @@ export function encodeBackup(state: State, createdAt = new Date().toISOString())
     createdAt,
     state: withoutInstallationChoices(validateBackupState(state)),
   };
-  const raw = JSON.stringify(backup);
+  return JSON.stringify(backup);
+}
+
+export function encodeBackup(state: State, createdAt = new Date().toISOString()): string {
+  const raw = backupText(state, createdAt);
   try {
     checkJsonSize(raw, MAX_BACKUP_BYTES, 'backup');
   } catch {

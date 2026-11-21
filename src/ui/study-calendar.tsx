@@ -54,8 +54,10 @@ export function DayGrid<T extends { date: string }>({
   testID,
   label,
   halo,
+  hint,
 }: {
-  days: T[];
+  /** Monday first; null leaves a day's column empty (before a month's first day, after its last). */
+  days: (T | null)[];
   look: (day: T) => CellLook;
   selected: string | null;
   onSelect: (date: string | null) => void;
@@ -63,6 +65,8 @@ export function DayGrid<T extends { date: string }>({
   label?: (day: T) => string;
   /** A ring drawn around a day's mark, a little apart from it: today on the Mornings card. */
   halo?: (day: T) => ColorValue | null;
+  /** What a tap does, for VoiceOver, when it is not selecting the day to show below. */
+  hint?: string;
 }) {
   const rows = weekRows(days);
   return (
@@ -93,7 +97,8 @@ export function DayGrid<T extends { date: string }>({
               ? {
                   accessibilityRole: 'button' as const,
                   accessibilityLabel: label(d),
-                  accessibilityHint: on ? 'Selected. Tap again to clear.' : 'Shows this day below.',
+                  accessibilityHint:
+                    hint ?? (on ? 'Selected. Tap again to clear.' : 'Shows this day below.'),
                   accessibilityState: { selected: on },
                   'aria-selected': on,
                 }

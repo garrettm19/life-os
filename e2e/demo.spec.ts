@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { demoState } from '../src/domain/demo';
 import { scanPage } from './support/layout-probe';
+import { showPaused } from './support/programs';
 import { showJourney } from './support/progress';
 import { saved, seed } from './support/storage';
 
@@ -16,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date(2026, 10, 9, 9) });
 });
 
-test('the empty app offers my backup, my setup or the demo; Load my setup opens the import', async ({
+test('the empty app offers my backup, my setup or the demo; Load my setup opens Files', async ({
   page,
 }) => {
   await page.goto('/');
@@ -38,12 +39,15 @@ test('the empty app offers my backup, my setup or the demo; Load my setup opens 
   expect(await fill('Restore my backup')).toBe('rgb(245, 241, 235)');
   expect(await fill('Load my setup')).toBe('rgba(0, 0, 0, 0)');
   expect(await fill('Explore demo')).toBe('rgba(0, 0, 0, 0)');
+  // Load my setup opens Files at once; choosing nothing saves nothing.
+  const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Load my setup', exact: true }).click();
-  // The import leads Settings on an empty device: its button is on screen without scrolling.
+  await chooser;
+  // On an empty device the import leads Settings: its button is on screen without scrolling.
+  await page.goto('/settings');
   await expect(
     page.getByRole('button', { name: 'Choose setup file', exact: true }),
   ).toBeInViewport();
-  // Opening the import saves nothing.
   expect((await saved(page))?.programs ?? []).toEqual([]);
 });
 
@@ -75,17 +79,25 @@ test('Explore demo loads the fictional six weeks, labeled as a demo, on every sc
   await page.screenshot({ path: 'test-results/demo-full-today.png', fullPage: true });
   // Programs holds the wider life: every goal, and the paused trading practice and its cockpit.
   await page.getByRole('link', { name: 'Programs', exact: true }).click();
-  await page.getByRole('button', { name: /^Life goals/ }).click();
-  const goals = page.getByTestId('goal-map');
-  await expect(goals).toContainText('Close friends and a social life');
-  await expect(goals).toContainText('No scheduled objective');
-  await expect(goals).toContainText('Engineering skills · Career steps');
+  // Paused trading waits behind the Paused programs fold.
+  await expect(
+    page.getByRole('button', {
+      name: 'Open the trading cockpit for Follow my trading plan',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await showPaused(page);
   await expect(
     page.getByRole('button', {
       name: 'Open the trading cockpit for Follow my trading plan',
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole('button', { name: /^Life goals/ }).click();
+  const goals = page.getByTestId('goal-map');
+  await expect(goals).toContainText('Close friends and a social life');
+  await expect(goals).toContainText('No scheduled objective');
+  await expect(goals).toContainText('Engineering skills · Career steps');
   for (const [name, route] of [
     ['week', '/week'],
     ['programs', '/programs'],
@@ -120,8 +132,9 @@ test('Programs names each program as a heading, and the trading editor points to
   page,
 }) => {
   await seed(page, demoState(TODAY), { route: '/programs' });
+  await showPaused(page);
   // The headings rotor moves between programs and the group labels above them.
-  for (const title of ['Morning foundations', 'Career steps', 'Trading practice', 'Paused'])
+  for (const title of ['Morning foundations', 'Career steps', 'Trading practice'])
     await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'Configure Follow my trading plan', exact: true }).click();
   await expect(page.getByText(/Its rules and limits are on the Trading page\.$/)).toBeVisible();

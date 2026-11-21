@@ -2,10 +2,18 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { withDay } from '../domain/data';
 import { Block, Measurement, WeightUnit, displayDate, localDate, shiftDate } from '../domain/model';
-import { deleteMeasurement, parseWeight, recordWeight, weightIn } from '../domain/measurements';
+import {
+  convertWeight,
+  deleteMeasurement,
+  parseWeight,
+  recordWeight,
+  weightIn,
+} from '../domain/measurements';
+import { undoEffect } from '../domain/objectives';
 import { setStatus } from '../domain/planner';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, Sheet, styles } from './components';
+import { ConfirmRemove, linkedQuestion } from './confirm-remove';
 import { newId } from './ids';
 import { palette, type } from './theme';
 
@@ -52,16 +60,51 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
             (m.occurrenceId === target.occurrence?.block.id || m.date === date),
         )
       : undefined);
-  const linkedDone = existing?.occurrenceId
-    ? Object.values(state.days)
-        .flatMap((d) => d.blocks)
-        .some((b) => b.id === existing.occurrenceId && b.status === 'done')
-    : false;
+  // A weight that completed its weigh-in, still Done: deleting it asks what happens to the Done.
+  const undoing = existing?.occurrenceId ? undoEffect(state, existing.occurrenceId, today) : null;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const remove = (undoObjective: boolean) => {
+    if (!existing) return;
+    void change((s) => deleteMeasurement(s, existing.id, { undoObjective })).then(
+      (ok) => ok && close(),
+    );
+  };
   const last = lastWeight(state.measurements, existing?.id);
   const [unit, setUnit] = useState<WeightUnit>(
     existing?.entered.unit ?? last?.entered.unit ?? 'lb',
   );
   const [value, setValue] = useState(existing ? String(weightIn(existing, unit)) : '');
+  // What the number in the field stands for while only the unit changes: the saved weight being
+  // corrected, or the number as first typed in its unit. Each switch converts from it, so the
+  // field keeps meaning the same weight and toggling back and forth never drifts. Typing resets it.
+  const [origin, setOrigin] = useState<{ value: number; unit: WeightUnit } | 'saved' | null>(
+    existing ? 'saved' : null,
+  );
+  const switchUnit = (next: WeightUnit) => {
+    if (next === unit) return;
+    setUnit(next);
+    if (origin === 'saved' && existing) {
+      setValue(String(weightIn(existing, next)));
+      setError(null);
+      return;
+    }
+    let from = origin === 'saved' ? null : origin;
+    if (!from) {
+      try {
+        from = { value: parseWeight(value, unit), unit };
+      } catch {
+        // A blank or invalid number is left as it is, for its own message on Save.
+        return;
+      }
+      setOrigin(from);
+    }
+    setValue(String(convertWeight(from.value, from.unit, next)));
+    setError(null);
+  };
+  // The number the field was converted from, shown under it so a switch never looks like an edit.
+  const from = origin === 'saved' ? (existing?.entered ?? null) : origin;
+  const converted =
+    from && from.unit !== unit ? `${from.value} ${from.unit} = ${value} ${unit}` : null;
   const [fasted, setFasted] = useState(existing?.fasted ?? null);
   const [note, setNote] = useState(existing?.note ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +113,10 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
   const planned = target.occurrence?.block.status === 'planned';
   const save = async () => {
     try {
-      const parsed = parseWeight(value, unit);
+      // A saved weight whose number was not edited (only its unit shown in the other one) keeps the
+      // weight exactly as first entered, so looking at it in lb or kg never moves it by a rounding.
+      const kept = origin === 'saved' && existing ? existing.entered : null;
+      const parsed = kept ? kept.value : parseWeight(value, unit);
       const now = new Date().toISOString();
       const occurrence = target.occurrence
         ? { date: target.occurrence.date, blockId: target.occurrence.block.id }
@@ -81,7 +127,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           {
             id: s.measurements.some((m) => m.id === id) ? id : undefined,
             value: parsed,
-            unit,
+            unit: kept ? kept.unit : unit,
             date,
             fasted,
             note,
@@ -129,6 +175,7 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
             value={value}
             onChange={(next) => {
               setValue(next);
+              setOrigin(null);
               setError(null);
             }}
             placeholder={last ? String(weightIn(last, unit)) : unit === 'lb' ? '180.4' : '81.8'}
@@ -141,10 +188,11 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           accessibilityLabel="Unit"
           style={{ flexDirection: 'row', gap: 6 }}>
           {(['lb', 'kg'] as const).map((u) => (
-            <Chip key={u} role="radio" title={u} on={unit === u} onPress={() => setUnit(u)} />
+            <Chip key={u} role="radio" title={u} on={unit === u} onPress={() => switchUnit(u)} />
           ))}
         </View>
       </View>
+      {converted && <Text style={type.caption}>{converted}</Text>}
       <View style={styles.row}>
         <Chip
           role="checkbox"
@@ -159,7 +207,10 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           {error}
         </Text>
       )}
-      <Button title={existing ? 'Save correction' : 'Save weight'} onPress={() => void save()} />
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
+        <Button title={existing ? 'Save correction' : 'Save weight'} onPress={() => void save()} />
+      )}
       {planned && (
         <Button
           secondary
@@ -174,38 +225,23 @@ function WeightForm({ target, close }: { target: WeightTarget; close: () => void
           }
         />
       )}
-      {existing && !linkedDone && (
-        <Button
-          secondary
-          title="Delete this weight"
-          onPress={() =>
-            void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close())
-          }
-        />
-      )}
-      {existing && linkedDone && (
-        <View style={{ gap: 8 }}>
-          <Text style={styles.muted}>
-            This weight completed a weigh-in. Deleting it removes it from your history and progress;
-            choose what happens to the weigh-in.
-          </Text>
-          <Button
-            secondary
-            title="Delete weight, keep weigh-in done"
-            onPress={() =>
-              void change((s) => deleteMeasurement(s, existing.id)).then((ok) => ok && close())
-            }
-          />
-          <Button
-            secondary
-            title="Delete weight and undo the weigh-in"
-            onPress={() =>
-              void change((s) => deleteMeasurement(s, existing.id, { undoObjective: true })).then(
-                (ok) => ok && close(),
+      {existing && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this weight"
+          {...(undoing
+            ? linkedQuestion(
+                'weight',
+                undoing,
+                { undo: () => remove(true), keep: () => remove(false) },
+                today,
               )
-            }
-          />
-        </View>
+            : {
+                message: 'Delete this weight? It leaves your history and Progress.',
+                remove: { title: 'Delete weight', onPress: () => remove(false) },
+              })}
+        />
       )}
       <Text style={{ ...type.muted, color: palette.label3 }}>
         Private. Stays on this device and off the Home Screen widget. One weight per date.

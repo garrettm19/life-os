@@ -10,7 +10,7 @@ import {
   shortDate,
   weekdayShort,
 } from './model';
-import { setStatus } from './planner';
+import { doneOccurrenceDay, setStatus } from './planner';
 import { fromGrams, toGrams, validateMeasurements } from './records';
 
 /**
@@ -23,6 +23,16 @@ function change(to: number, from: number): number {
   return (Math.sign(hundredths) * Math.round(Math.abs(hundredths) / 10)) / 10;
 }
 
+/**
+ * The weight a person can type, 20–700 lb. The kg bounds are those two converted (9.1–317.5 kg), so
+ * a valid weight switched to the other unit is still valid there. Saved data is checked against the
+ * slightly wider 9–318 kg (`validateMeasurements`), so a weight saved before stays readable.
+ */
+const WEIGHT_RANGE: Record<WeightUnit, [number, number]> = {
+  lb: [20, 700],
+  kg: [fromGrams(toGrams(20, 'lb'), 'kg'), fromGrams(toGrams(700, 'lb'), 'kg')],
+};
+
 /** Parses typed weight ("180.4", "180,4") or explains what is wrong. */
 export function parseWeight(text: string, unit: WeightUnit): number {
   const cleaned = text.trim().replace(',', '.');
@@ -31,7 +41,7 @@ export function parseWeight(text: string, unit: WeightUnit): number {
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned))
     throw new Error('Use a number like 180.4, with at most two decimals.');
   const value = Number(cleaned);
-  const [min, max] = unit === 'lb' ? [20, 700] : [9, 318];
+  const [min, max] = WEIGHT_RANGE[unit];
   if (value < min || value > max)
     throw new Error(`Enter a weight between ${min} and ${max} ${unit}.`);
   return value;
@@ -40,6 +50,15 @@ export function parseWeight(text: string, unit: WeightUnit): number {
 /** The value to show in `unit`: exactly as typed when units match, else converted from grams. */
 export function weightIn(m: Measurement, unit: WeightUnit): number {
   return m.entered.unit === unit ? m.entered.value : fromGrams(m.grams, unit);
+}
+
+/**
+ * A typed weight read in another unit, to one decimal, the way a saved weight is shown in that unit
+ * (`weightIn`). Converting back gives the nearest tenth, not always the number typed, so a form
+ * that lets the unit be switched converts from the value as first typed each time.
+ */
+export function convertWeight(value: number, from: WeightUnit, to: WeightUnit): number {
+  return from === to ? value : fromGrams(toGrams(value, from), to);
 }
 
 export type WeightInput = {
@@ -115,9 +134,7 @@ export function deleteMeasurement(
   if (!measurement) throw new Error('This measurement no longer exists.');
   let next: State = { ...state, measurements: state.measurements.filter((m) => m.id !== id) };
   if (options.undoObjective && measurement.occurrenceId) {
-    const day = Object.values(next.days).find((d) =>
-      d.blocks.some((b) => b.id === measurement.occurrenceId && b.status === 'done'),
-    );
+    const day = doneOccurrenceDay(next.days, measurement.occurrenceId);
     if (day) next = withDay(next, setStatus(day, measurement.occurrenceId, 'planned'));
   }
   return next;

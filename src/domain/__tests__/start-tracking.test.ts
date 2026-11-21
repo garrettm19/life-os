@@ -9,6 +9,8 @@ import { dayClearStreak, dayProgress, streakHistory } from '../objectives';
 import { inRepeatWeek } from '../repeat';
 import { ensureDay, nextWorkout } from '../rotation';
 import { startTracking } from '../start-tracking';
+import { upsertRoutine } from '../routines';
+import { addGoal } from '../goals';
 import { studyStreak } from '../study-streak';
 import { cleanStreak, tradingBook } from '../trading';
 import { basicState } from '../../test-support/basic-state';
@@ -201,4 +203,20 @@ describe('start tracking', () => {
     const personal = { ...basicState(), source: 'personal' as const };
     expect(() => startTracking(personal, TODAY, now)).toThrow('Only the demo');
   });
+});
+
+it('keeps an edit made inside the demo and still clears its history', () => {
+  const TODAY = '2026-11-09';
+  const demo = demoState(TODAY);
+  const first = demo.programs[0];
+  const now = at(TODAY, 9);
+  let edited = upsertRoutine(demo, first, { ...first.routines[0], title: 'My own title' }, now);
+  edited = addGoal(edited, 'goal-own', 'My own goal', '');
+  expect(edited.source).toBe('demo');
+  const tracked = startTracking(edited, TODAY, at(TODAY, 10));
+  expect(tracked.source).toBe('personal');
+  expect(routine(tracked, first.routines[0].id).title).toBe('My own title');
+  expect(tracked.goals.at(-1)!.title).toBe('My own goal');
+  expect(tracked.days).toEqual({});
+  expect(tracked.measurements).toEqual([]);
 });

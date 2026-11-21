@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 import { activeFocus } from '../domain/focus';
 import { focusEvidence } from '../domain/focus-evidence';
@@ -13,6 +14,7 @@ import {
 import { useApp } from '../state/app-state';
 import { shortDate } from './chart-scale';
 import { Button, Chip, Field, SectionLabel, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { Disclosure, LinkButton } from './controls';
 import { newId } from './ids';
 import { palette, type } from './theme';
@@ -31,6 +33,7 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
   const [obstacle, setObstacle] = useState(saved?.obstacle ?? '');
   const [adjustment, setAdjustment] = useState(saved?.adjustment ?? '');
   const [noChange, setNoChange] = useState(saved?.noChange ?? false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const done = (ok: boolean) => ok && close();
   return (
     <Sheet title={`Week of ${shortDate(weekStart)}`} visible close={close}>
@@ -71,26 +74,34 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
         Nothing on your plan changes by itself. If the adjustment needs a new time or day, change it
         in Programs.
       </Text>
-      <Button
-        title="Save review"
-        disabled={!obstacle.trim() && !adjustment.trim() && !noChange}
-        needs="Write the obstacle or one adjustment, or choose No adjustment needed, to save."
-        onPress={() =>
-          void change((s) =>
-            saveWeeklyReview(
-              s,
-              { weekStart, obstacle, adjustment, noChange },
-              newId('week'),
-              new Date().toISOString(),
-            ),
-          ).then(done)
-        }
-      />
-      {saved && (
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
         <Button
-          secondary
-          title="Remove this review"
-          onPress={() => void change((s) => deleteWeeklyReview(s, weekStart)).then(done)}
+          title="Save review"
+          disabled={!obstacle.trim() && !adjustment.trim() && !noChange}
+          needs="Write the obstacle or one adjustment, or choose No adjustment needed, to save."
+          onPress={() =>
+            void change((s) =>
+              saveWeeklyReview(
+                s,
+                { weekStart, obstacle, adjustment, noChange },
+                newId('week'),
+                new Date().toISOString(),
+              ),
+            ).then(done)
+          }
+        />
+      )}
+      {saved && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Remove this review"
+          message="Remove this review? The week's answers are cleared; your plan is unchanged."
+          remove={{
+            title: 'Remove review',
+            onPress: () => void change((s) => deleteWeeklyReview(s, weekStart)).then(done),
+          }}
         />
       )}
     </Sheet>
@@ -105,6 +116,16 @@ function WeeklySheet({ weekStart, close }: { weekStart: string; close: () => voi
 export function CourseCorrection() {
   const { state } = useApp();
   const [editing, setEditing] = useState<string | null>(null);
+  // Opened from Today's "Two minutes on your week?": the editor for that week opens at once, once.
+  const asked = useLocalSearchParams<{ review?: string }>().review;
+  const [answered, setAnswered] = useState<string | null>(null);
+  if (asked && asked !== answered) {
+    setAnswered(asked);
+    setEditing(asked);
+  }
+  useEffect(() => {
+    if (asked) router.setParams({ review: undefined });
+  }, [asked]);
   if (!state.programs.length) return null;
   const today = localDate();
   // On a Monday the week has just begun: the review is for the week that ended, unless that one

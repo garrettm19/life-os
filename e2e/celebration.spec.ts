@@ -71,7 +71,9 @@ test('clearing the day on screen celebrates once, with the streak, the week and 
   const state = await saved(page);
   expect(state.days[TODAY].blocks.find((b) => b.routineId === 'demo-morning')!.status).toBe('done');
   await expect(party.getByLabel(/^Streak \d+ days?$/)).toBeVisible();
-  await expect(party.getByText(/^(Up from \d+|A new run starts today)$/)).toBeVisible();
+  await expect(
+    party.getByText(/^(Up from \d+|A new run starts today|Back on track)$/),
+  ).toBeVisible();
   await expect(party.getByTestId('week-strip')).toHaveAttribute(
     'aria-label',
     /^Last 7 days: \d cleared\. .* Mon, Nov 9 cleared\.$/,

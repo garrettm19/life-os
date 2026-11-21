@@ -51,14 +51,17 @@ jest.mock('../../widget/today-widget', () => ({
 const DATE = '2026-11-09';
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-type Render = { change: unknown; busy: boolean; ready: boolean };
+type Render = { change: unknown; busy: boolean; ready: boolean; state: unknown };
+/** Renders of a reader of `useApp()` alone, with the state it saw. */
+const appOnly: { ready: boolean; state: unknown }[] = [];
 const renders: Render[] = [];
 let operations = 0;
 
 /** Opens a day once it is missing, the way Today ensures a day: it reads state and calls change. */
 function EnsureDay() {
-  const { state, change, ready, busy } = useApp();
-  renders.push({ change, busy, ready });
+  const { state, change, ready } = useApp();
+  const busy = useBusy();
+  renders.push({ change, busy, ready, state });
   useEffect(() => {
     if (!ready || state.days[DATE]) return;
     void change((s) => {
@@ -69,10 +72,24 @@ function EnsureDay() {
   return null;
 }
 
+/** Reads only the app context, the way most screens do. */
+function AppOnly() {
+  const { state, ready } = useApp();
+  appOnly.push({ ready, state });
+  return null;
+}
+
 async function mount(): Promise<ReactTestRenderer> {
   let tree: ReactTestRenderer | null = null;
   await act(async () => {
-    tree = create(createElement(AppProvider, { children: createElement(EnsureDay) }));
+    tree = create(
+      createElement(AppProvider, {
+        children: [
+          createElement(EnsureDay, { key: 'day' }),
+          createElement(AppOnly, { key: 'app' }),
+        ],
+      }),
+    );
   });
   await act(async () => {
     await wait(100);
@@ -90,6 +107,7 @@ afterEach(() => {
   mockWidgets.fail = false;
   mockWidgets.published.length = 0;
   renders.length = 0;
+  appOnly.length = 0;
   operations = 0;
 });
 
@@ -99,6 +117,15 @@ describe('AppProvider', () => {
     const loaded = renders.filter((entry) => entry.ready);
     expect(loaded.some((entry) => entry.busy)).toBe(true);
     expect(new Set(loaded.map((entry) => entry.change)).size).toBe(1);
+    act(() => tree.unmount());
+  });
+
+  it('does not re-render a reader of the app context when a save only toggles busy', async () => {
+    const tree = await mount();
+    // The save toggled busy (EnsureDay saw it), yet every loaded render of AppOnly saw new state.
+    expect(renders.some((entry) => entry.ready && entry.busy)).toBe(true);
+    const loaded = appOnly.filter((entry) => entry.ready);
+    for (let i = 1; i < loaded.length; i++) expect(loaded[i].state).not.toBe(loaded[i - 1].state);
     act(() => tree.unmount());
   });
 

@@ -13,6 +13,7 @@ import {
 import { CheckpointDifficulty, SkillCheckpoint, displayDate, localDate } from '../domain/model';
 import { useApp } from '../state/app-state';
 import { Button, Chip, Field, SectionLabel, Sheet, styles } from './components';
+import { ConfirmRemove } from './confirm-remove';
 import { Disclosure, LinkButton } from './controls';
 import { newId } from './ids';
 import { type } from './theme';
@@ -40,6 +41,7 @@ function CheckpointSheet({
   const [fresh, setFresh] = useState(from?.fresh ?? true);
   const [topics, setTopics] = useState(existing?.topics ?? '');
   const [next, setNext] = useState(existing?.next ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const done = (ok: boolean) => ok && close();
   const save = () =>
     void change((s) => {
@@ -111,17 +113,25 @@ function CheckpointSheet({
         <Field label="Topics (optional)" value={topics} onChange={setTopics} multiline />
         <Field label="Next practice area (optional)" value={next} onChange={setNext} />
       </Disclosure>
-      <Button
-        title="Save checkpoint"
-        disabled={!method.trim() || !attempted.trim() || !solved.trim()}
-        needs="Fill in where and how, attempted and solved to save it."
-        onPress={save}
-      />
-      {existing && (
+      {/* While a delete is being confirmed, the card is the only decision on screen. */}
+      {!confirmDelete && (
         <Button
-          secondary
-          title="Delete this checkpoint"
-          onPress={() => void change((s) => deleteCheckpoint(s, existing.id)).then(done)}
+          title="Save checkpoint"
+          disabled={!method.trim() || !attempted.trim() || !solved.trim()}
+          needs="Fill in where and how, attempted and solved to save it."
+          onPress={save}
+        />
+      )}
+      {existing && (
+        <ConfirmRemove
+          open={confirmDelete}
+          setOpen={setConfirmDelete}
+          ask="Delete this checkpoint"
+          message="Delete this checkpoint? It leaves your history and Progress."
+          remove={{
+            title: 'Delete checkpoint',
+            onPress: () => void change((s) => deleteCheckpoint(s, existing.id)).then(done),
+          }}
         />
       )}
     </Sheet>

@@ -1,8 +1,9 @@
 import { anchorRoutine, backOnTime, morningOn } from './anchor';
 import { State, dateObject, displayDate, displayTime, shiftDate, weekStartOf } from './model';
-import { weightIn } from './measurements';
+import { weightChange, weightHistory } from './measurements';
 import { formatMoney } from './money';
 import { dayClearStreak, dayOutcome } from './objectives';
+import { dateText, weightChangeText } from './progress';
 
 // Progress worth feeling, read only from what was recorded: a lift heavier than every earlier
 // session, the Day Clear streak reaching a new best or a round number, a money review that shows
@@ -161,6 +162,16 @@ export function streakStep(state: State, date: string, today: string) {
   };
 }
 
+/**
+ * What the Day Cleared figure grew from, said once and never as a count from zero: "Up from 4", or
+ * for the first clear after a run ended, "Back on track" (the best run is already beside it).
+ */
+export function growthCaption(step: { before: number; after: number; bestBefore: number }) {
+  if (step.before > 0) return `Up from ${step.before}`;
+  if (step.after !== 1) return null;
+  return step.bestBefore > 0 ? 'Back on track' : 'A new run starts today';
+}
+
 export type WeekDayMark = {
   date: string;
   /** One letter for the weekday: M, T, W… */
@@ -262,7 +273,7 @@ export function journey(state: State, today: string): Highlight[] {
       value: String(sessions.length),
       detail: grew
         ? `${grew.name} ${grew.load} → ${grew.top} ${grew.unit}`
-        : `Since ${displayDate(sessions[0].date)}`,
+        : `Since ${dateText(sessions[0].date, today)}`,
       ...(grew
         ? { lift: { name: grew.name, from: grew.load, to: grew.top, unit: grew.unit } }
         : {}),
@@ -278,7 +289,7 @@ export function journey(state: State, today: string): Highlight[] {
       id: 'debt',
       label: 'Debt paid down',
       value: formatMoney(debts[0].debt! - debts.at(-1)!.debt!, currency),
-      detail: `${formatMoney(debts[0].debt!, currency)} → ${formatMoney(debts.at(-1)!.debt!, currency)} since ${displayDate(debts[0].date)}`,
+      detail: `${formatMoney(debts[0].debt!, currency)} → ${formatMoney(debts.at(-1)!.debt!, currency)} since ${dateText(debts[0].date, today)}`,
     });
   const savings = money.filter((r) => r.currency === currency && r.savings !== null);
   if (savings.length > 1 && savings.at(-1)!.savings! > savings[0].savings!)
@@ -286,20 +297,22 @@ export function journey(state: State, today: string): Highlight[] {
       id: 'savings',
       label: 'Savings added',
       value: formatMoney(savings.at(-1)!.savings! - savings[0].savings!, currency),
-      detail: `Since ${displayDate(savings[0].date)}`,
+      detail: `Since ${dateText(savings[0].date, today)}`,
     });
-  // Body weight from the first weigh-in to the latest, in the latest one's unit. Its direction is
-  // the user's to read: it is never called progress or a setback.
-  const weights = state.measurements
+  // Body weight from the first weigh-in to the latest, in the latest one's unit, with the measured
+  // change in words ("Down 3.2 lb since Sep 30"), as the Body weight card says it. Its direction
+  // is the user's to read: it is never called progress or a setback.
+  const weighIns = state.measurements
     .filter((m) => m.kind === 'body-weight' && m.date <= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (weights.length > 1) {
-    const unit = weights.at(-1)!.entered.unit;
+    .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+  if (weighIns.length > 1) {
+    const unit = weighIns.at(-1)!.entered.unit;
+    const measured = weightChange(weightHistory({ ...state, measurements: weighIns }, unit))!;
     out.push({
       id: 'weight',
       label: 'Body weight',
-      value: `${weightIn(weights.at(-1)!, unit)} ${unit}`,
-      detail: `${weightIn(weights[0], unit)} ${unit} on ${displayDate(weights[0].date)}`,
+      value: `${measured.to.value} ${unit}`,
+      detail: weightChangeText(measured.change, unit, measured.from.date, today),
     });
   }
   return out;

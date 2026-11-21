@@ -195,6 +195,12 @@ test('the life log adds, edits and deletes entries without touching objectives',
   expect(state.days[MON].blocks.every((b) => b.status === 'planned')).toBe(true);
   await page.getByRole('button', { name: 'Edit log entry: Synthetic edited session' }).click();
   await page.getByRole('button', { name: 'Delete this entry', exact: true }).click();
+  // One small confirm: Keep it leaves the entry, Delete entry removes it.
+  await expect(page.getByText('Delete this entry? It leaves your log.')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep it', exact: true }).click();
+  expect((await saved(page)).lifeLog).toHaveLength(1);
+  await page.getByRole('button', { name: 'Delete this entry', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete entry', exact: true }).click();
   await expect(page.getByText('Synthetic edited session', { exact: true })).toHaveCount(0);
   state = await saved(page);
   expect(state.lifeLog).toEqual([]);
@@ -308,16 +314,64 @@ test('deleting a weight that completed a weigh-in asks what happens to the weigh
   await page.getByLabel('Weight in lb', { exact: true }).fill('180.4');
   await page.getByRole('button', { name: 'Save weight', exact: true }).click();
   await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
+  await page.getByRole('button', { name: 'Delete this weight', exact: true }).click();
+  await expect(page.getByText(/^This weight completed Weekly weigh-in today\./)).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Delete weight and undo the weigh-in', exact: true }),
+    page.getByRole('button', { name: 'Delete and undo Done', exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Delete weight, keep weigh-in done', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Delete, keep Done', exact: true }).click();
   await expect(page.getByText('Done · no measurement')).toBeVisible();
   const after = await saved(page);
   expect(after.measurements).toEqual([]);
   expect(after.days[realToday].blocks.find((b) => b.routineId === 'weigh-in')!.status).toBe('done');
+});
+
+test('switching lb and kg converts the typed weight, and saving keeps what is shown', async ({
+  page,
+}) => {
+  const state = trainingState();
+  for (const routine of state.programs[1].routines)
+    routine.weekdays = [dateObject(realToday).getDay()];
+  await seed(page, state);
+  await page.goto('/?date=' + realToday);
+  await page.getByRole('button', { name: 'Record Weekly weigh-in', exact: true }).click();
+  await page.getByLabel('Weight in lb', { exact: true }).fill('180');
+  const kg = page.getByRole('radio', { name: 'kg', exact: true });
+  const lb = page.getByRole('radio', { name: 'lb', exact: true });
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // The number it was converted from shows under the field, so a switch never looks like an edit.
+  await expect(page.getByText('180 lb = 81.6 kg', { exact: true })).toBeVisible();
+  // Back and forth never drifts: each switch converts from the number as typed.
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('180');
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  await page.getByRole('button', { name: 'Save weight', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Open Weekly weigh-in/ })).toBeVisible();
+  expect((await saved(page)).measurements).toEqual([
+    expect.objectContaining({ grams: toGrams(81.6, 'kg'), entered: { value: 81.6, unit: 'kg' } }),
+  ]);
+  // A saved weight opened for correction converts the same way, and an edited number is kept.
+  await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('179.9');
+  await kg.click();
+  await expect(page.getByLabel('Weight in kg', { exact: true })).toHaveValue('81.6');
+  // Only looking at it in lb and saving keeps the weight exactly as entered: no rounding moves it.
+  await lb.click();
+  await expect(page.getByText('81.6 kg = 179.9 lb', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save correction', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Open Weekly weigh-in/ })).toBeVisible();
+  expect((await saved(page)).measurements).toEqual([
+    expect.objectContaining({ grams: toGrams(81.6, 'kg'), entered: { value: 81.6, unit: 'kg' } }),
+  ]);
+  await page.getByRole('button', { name: /^Open Weekly weigh-in/ }).click();
+  // A blank field is left blank.
+  await page.getByLabel('Weight in kg', { exact: true }).fill('');
+  await lb.click();
+  await expect(page.getByLabel('Weight in lb', { exact: true })).toHaveValue('');
 });
 
 test('restoring an older backup warns which records would be removed, and Close changes nothing', async ({

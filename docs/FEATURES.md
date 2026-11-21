@@ -37,18 +37,20 @@ Settings opens from the header. Trading opens as a page above the tabs.
 | Rule-adherence review | Checkpoints and any broken rule                        |
 | Trading review        | Eight PASS or FAIL items and any hard violation        |
 
-A record and the Done it earns are saved together, so neither exists without the other.
+A record and the Done it earns are saved together, so neither exists without the other. Deleting a record asks once first. Deleting a weight or money review that completed its objective offers to undo that Done in the same save, or to keep it Done; the confirm names the objective and its day and says when that day would no longer count as cleared, and for a past day it recommends keeping the Done (`undoEffect` in `src/domain/objectives.ts`).
 
 ## Scheduling
 
 - **Weekdays and repeats.** `onItsDays` in `src/domain/repeat.ts` is the one due-day rule: the date's weekday is one of the routine's weekdays, in one of its repeat weeks (weekly, or every 2 to 12 weeks). No default weekday is invented.
-- **Rotations.** A program can rotate its workouts with rest weekdays. The next workout is derived from the latest completed one, never stored. Only the actual day gets its workout; later days show a projection. Skip on a rotation workout rests the program for the day, and the workout moves to the next training day.
+- **Rotations.** A program can rotate its workouts with rest weekdays. The next workout is derived from the latest completed one, never stored. Only the actual day gets its workout; later days show a projection. Skip on a rotation workout rests the program for the day, and the workout moves to the next training day. A rest day reads "Rest day · next up: …" on Today with a small Train anyway; once the day is cleared, Train anyway waits in More for today, so a finished day offers no more work above the fold.
 - **Companions.** A routine can follow certain workouts (a stretch after leg day) and is due wherever they are.
 - **Bundled steps.** A routine can appear as a step inside a session of its program. Day Cleared counts the steps, not the parent.
 - **Optional objectives** are encouraged but never required.
 - **Timed sessions.** A checklist item never holds a time. A timed session has a duration, a preferred start and an optional window. **Generate day** places sessions between the day's start and bedtime, around work hours and meetings. One that cannot be placed says why. **Replan** moves flexible blocks into free slots from now on.
 - **Moving workouts.** A planned workout and the later ones in its program can move forward a day, with a preview. The move applies completely or not at all, and can be reversed exactly.
 - **The order of the day.** One ordering rule (`dayListOrder` in `src/domain/day-order.ts`) sorts Today and the large widget. Changing the order rewrites no history.
+- **Blocks added by hand** can be deleted on today or later, after one confirm; the plan they left is kept as a revision (`removeBlock` in `src/domain/planner.ts`). A routine's occurrence is skipped or paused instead.
+- **Paused routines** wait behind a closed Paused fold in their program card, and a program with everything paused moves into a Paused programs fold at the foot of Programs. The folds close on every visit, a search shows everything, and with nothing active (a setup imported all paused) nothing is folded.
 - **Browsing.** Opening a past date creates nothing, and routine edits apply to today and later only ([ADR 4](decisions/0004-history-is-never-rewritten.md)).
 
 ## Day Cleared and streaks
@@ -64,16 +66,20 @@ A day is **cleared** when at least one required objective is done, every other r
 | Open         | Something is due and the day is not cleared                       |
 
 - **Day Clear streak.** A cleared day adds one, a protected day holds the run, and Nothing due and Not recorded change nothing. An open day that can no longer be finished ends the run.
+- **Finish yesterday.** While yesterday is saved, open and not protected, a line in Today's hero card, where its note would be, says how much is still open there and opens it, where ticks and Skip work as on Today. Clearing it keeps the run with no other step, since the streak is read from the days. Only yesterday is offered, never an older day or the demo, and an x hides the line until the app is next launched. On yesterday's page the morning anchor can be corrected too.
+- **Month.** The streak details show a month of days, Monday first: a cleared day is a seal, a protected day a ringed date, and today is ringed. Every other day shows its date faintly, never as a miss. One line counts the days cleared in the month; arrows go back to the first recorded month, and tapping a day opens it.
 - **Study streak.** Stricter and separate: a scheduled study day that was skipped or left open ends it. It is judged from the schedule the plan recorded for that date, never from today's settings.
 - **Trading clean-session streak.** Counted from reviewed sessions only, never from profit.
 - **Morning anchor.** One plain checklist routine can carry an "Up by" time. Progress shows how often it was ticked on time over the last seven mornings. The app never tracks or infers sleep.
-- **Celebration.** One short celebration plays when a save on Today clears the day. There are no points, badges or leaderboards.
+- **Celebration.** One short celebration plays when a save on Today clears the day. It says what the run grew from, or Back on track for the first clear after a run ended. There are no points, badges or leaderboards.
 
 Streaks and progress moments are derived from records on every read, so Undo and edits to past days recalculate them.
 
 ## Progress
 
 Charts plot recorded values only: no interpolation, no invented points and no scores. Each chart has a plain sentence above it ("95% of required objectives done in the last 4 weeks"), can be read by pressing and dragging, and has a list view for VoiceOver. A weekly review records one deliberate adjustment, or a choice to change nothing.
+
+The key figures sit in tiles with a small sparkline. A tile that adds up days (Days cleared, Study days) ends its line on the last finished week, or over a year on the last finished four weeks, because the span in progress is only part of one, and says that span in words ("This week so far · 2", or "Last 4 weeks so far · 6" over a year) once it has something and is not the whole figure. The Day Clear streak's line ends on today. These three lines need three points; with fewer the tile shows its figure alone. The streak tile shows the run and the best run, never a change against a range ago, since a run that restarts would only ever count down. Other tiles compare with the previous range in the same units on both sides; over a year, a tile with nothing a year before shows its figure alone. Body weight says which way it moved since the first weigh-in, in the unit it is shown in ("Down 3.2 lb since Sep 30"), and never calls it progress or a setback.
 
 ## Trading
 
@@ -109,14 +115,15 @@ What each widget may show is in [DATA_PRIVACY.md](DATA_PRIVACY.md#home-screen-wi
 - **Backup and restore.** A versioned JSON file of the whole state, saved through the share sheet. Restore validates the file and previews, in counts and labels, what it would replace before anything changes.
 - **Analysis export.** A CSV or JSON file of chosen categories and dates. It cannot be restored.
 - **Setup import.** A `life-os-setup-v1` file merges programs and routines into the device, previewed from a dry run. It never touches recorded history.
-- **Backup reminder.** One quiet line on Today when a backup is due, never a notification.
+- **One housekeeping line.** Today shows at most one quiet line, never a notification, in this order: the weekly review (from Sunday 3 PM through Monday, for a week with at least four recorded days and no review, never beside an open money review), a backup that is due, then a backup above 70% of its 20 MB limit. The backup line exports in one tap; on iPhone, Saved it records the backup and Not now hides the line until the next launch. The size is measured only when Backup or Settings opens.
+- **Load my setup** on the empty Today opens Files and previews the setup in place: two taps from an empty device.
 - **Study reminders** are the only notifications: local, opt-in and never naming a private objective.
 
 ## The demo
 
 **Explore demo**, on the empty Today, loads six weeks of a fictional person's records: twelve goals, a strength rotation with companions, a timed circuit, study, a weigh-in, a weekly money review and paused trading practice. The data is built on the device by `src/domain/demo.ts` through the same functions the app uses when someone taps Done, so it is deterministic for a date. Every screen carries the tag "DEMO · fictional person and records".
 
-To leave it, **Start tracking** keeps the demo's programs as your own and clears its history. Settings → Reset this device's plan returns to the empty app.
+Editing a program, routine or goal inside the demo keeps it the demo, tag and all (`nextSource` in `src/domain/model.ts`), so its fictional history is never relabeled as yours. To leave it, **Start tracking** keeps the demo's programs, with any edits, as your own and clears its history. Settings → Reset this device's plan returns to the empty app.
 
 ## Not built
 

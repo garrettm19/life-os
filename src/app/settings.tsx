@@ -1,22 +1,25 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { useApp } from '../state/app-state';
-import {
-  SetupPreview,
-  TradingUpdate,
-  importSetup,
-  keptRecordsText,
-  previewSetup,
-  setupGaps,
-} from '../domain/setup';
-import { MAX_VIOLATIONS } from '../domain/records';
+import { setupGaps } from '../domain/setup';
 import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
-import { Goal, Settings, clock, emptyState, parseTime, validateSettings } from '../domain/model';
+import {
+  Goal,
+  Settings,
+  emptyState,
+  parseTime,
+  timeInput,
+  validateSettings,
+} from '../domain/model';
 import { GoalEditor } from '../ui/goal-editor';
-import { pickSetup } from '../data/pick-setup';
+import { addGoal } from '../domain/goals';
+import { useSetupImport } from '../ui/setup-import';
+import { measureBackup } from '../ui/backup-size';
+import { backupSizeWarning } from '../domain/housekeeping';
+import { MAX_BACKUP_BYTES } from '../domain/backup';
 import {
   Button,
   Field,
@@ -24,9 +27,10 @@ import {
   Sheet,
   StartTrackingSheet,
   TRACKING_STARTED,
+  TimeField,
   styles,
 } from '../ui/components';
-import { Disclosure } from '../ui/controls';
+import { Disclosure, LinkButton } from '../ui/controls';
 import { fonts, palette, type } from '../ui/theme';
 import { Group, GroupBody, IconTile, Row, Toggle } from '../ui/list';
 import { useAnnouncement } from '../ui/announce';
@@ -56,7 +60,7 @@ const fields: {
     type: 'time',
     hint: 'Not a goal. Your morning time lives on your anchor routine.',
   },
-  { key: 'bedtime', label: 'Bedtime (24:00 = midnight)', type: 'time' },
+  { key: 'bedtime', label: 'Bedtime', type: 'time' },
   {
     key: 'workStart',
     label: 'Morning work starts',
@@ -107,7 +111,10 @@ export default function SettingsScreen() {
     [edits, setValues] = useState<Record<string, string>>({}),
     [error, setError] = useState<string | null>(null),
     [notice, setNotice] = useState<string | null>(null),
-    [raw, setRaw] = useState('');
+    [raw, setRaw] = useState(''),
+    [pasting, setPasting] = useState(false);
+  // Measured when Settings opens, never on a save; Today's housekeeping line reads it too.
+  const bytes = useMemo(() => measureBackup(state), [state]);
   // Feedback sits beside the control that caused it, never off screen at the top of the page.
   const [scheduleError, setScheduleError] = useState<string | null>(null),
     [scheduleSaved, setScheduleSaved] = useState(false),
@@ -143,7 +150,7 @@ export default function SettingsScreen() {
         state.settings[f.key] === null
           ? ''
           : f.type === 'time'
-            ? clock(state.settings[f.key]!)
+            ? timeInput(state.settings[f.key]!)
             : String(state.settings[f.key]),
       ]),
     ),
@@ -177,43 +184,16 @@ export default function SettingsScreen() {
       setScheduleError(e instanceof Error ? e.message : 'Check these settings.');
     }
   };
-  // Importing shows what it would change first; nothing is saved until it is confirmed.
-  const [preview, setPreview] = useState<{ text: string; summary: SetupPreview } | null>(null);
-  const importText = async (text: string) => {
-    try {
-      setPreview({ text, summary: previewSetup(text, state, new Date().toISOString()) });
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read that setup.');
-    }
-  };
-  const confirmImport = async (pauseSameNamed: boolean) => {
-    if (!preview) return;
-    const text = preview.text;
-    // Counted from the imported state itself, inside the save.
-    const result = { programs: 0, routines: 0, first: !state.programs.length };
-    const okay = await change((s) => {
-      const next = importSetup(text, s, new Date().toISOString(), { pauseSameNamed });
-      result.programs = next.programs.length;
-      result.routines = next.programs.reduce((sum, p) => sum + p.routines.length, 0);
-      return next;
-    });
-    if (okay) {
-      setPreview(null);
+  const setup = useSetupImport({
+    onError: setError,
+    onImported: (result) => {
       setValues({});
       setRaw('');
       setImported(result);
       setError(null);
-    }
-  };
-  const choose = async () => {
-    try {
-      const text = await pickSetup();
-      if (text !== null) await importText(text);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read that file.');
-    }
-  };
+    },
+  });
+  const { choose, importText } = setup;
   const gaps = state.source !== 'demo' ? setupGaps(state) : [];
   // On an empty device the import is the next step, so it leads the page (Load my setup on Today
   // opens here); its result stays in that place.
@@ -252,13 +232,20 @@ export default function SettingsScreen() {
           demo.
         </Text>
         <Button title="Choose setup file" onPress={() => void choose()} />
-        <Field label="Or paste setup JSON" value={raw} onChange={setRaw} multiline />
-        <Button
-          secondary
-          title="Import pasted setup"
-          disabled={!raw.trim()}
-          onPress={() => void importText(raw)}
-        />
+        {/* Pasting is the rare path once a plan exists: one quiet link opens it. */}
+        {state.programs.length > 0 && !pasting ? (
+          <LinkButton title="Paste instead" onPress={() => setPasting(true)} />
+        ) : (
+          <>
+            <Field label="Or paste setup JSON" value={raw} onChange={setRaw} multiline />
+            <Button
+              secondary
+              title="Import pasted setup"
+              disabled={!raw.trim()}
+              onPress={() => void importText(raw)}
+            />
+          </>
+        )}
         {error && (
           <Text accessibilityRole="alert" style={styles.alert}>
             {error}
@@ -283,7 +270,13 @@ export default function SettingsScreen() {
           icon="backup"
           tone="sky"
           title="Backup and restore"
-          detail={`Last backup: ${lastBackupText(state, new Date())}`}
+          detail={`Last backup: ${lastBackupText(state, new Date())}${
+            bytes === null || !backupSizeWarning(bytes)
+              ? ''
+              : bytes > MAX_BACKUP_BYTES
+                ? ' · over the 20 MB limit'
+                : ` · ${Math.round((bytes / MAX_BACKUP_BYTES) * 100)}% of the 20 MB limit`
+          }`}
           onPress={() => router.push('/backup')}
         />
         <Row
@@ -296,7 +289,7 @@ export default function SettingsScreen() {
       </Group>
       <Group
         title="Home Screen widget"
-        footer="Small and medium show your next action; Large lists today's public objectives and ticks one-tap ones. Private objectives never appear. Day Cleared counts every objective, private ones too, and anyone who sees your Home Screen can see it; it never shows titles, counts or streaks.">
+        footer="Shows a check on the widget when the day is cleared. It counts private objectives too, and anyone who sees your Home Screen can see it.">
         <Toggle
           inset
           title="Show Day Cleared"
@@ -311,6 +304,14 @@ export default function SettingsScreen() {
           }
         />
       </Group>
+      <Disclosure title="About widgets">
+        <Text style={styles.muted}>
+          Small and medium show your next action; Large lists today&apos;s public objectives and
+          ticks one-tap ones. Private objectives never appear. Day Cleared counts every objective,
+          private ones too, and anyone who sees your Home Screen can see it; it never shows titles,
+          counts or streaks.
+        </Text>
+      </Disclosure>
       <View style={{ gap: 8 }}>
         <Text accessibilityRole="header" style={groupHeading}>
           Plan
@@ -320,18 +321,29 @@ export default function SettingsScreen() {
             Times use the phone’s timezone. Blank means unknown. Work reserves time; personal tasks
             use the free slots. Weekend work can be added by hand.
           </Text>
-          {fields.map((f) => (
-            <Field
-              key={f.key}
-              label={f.label + (f.optional ? ' · optional' : '')}
-              value={values[f.key] ?? ''}
-              onChange={(v) => setValues({ ...edits, [f.key]: v })}
-              numeric={f.type === 'duration'}
-              time={f.type === 'time'}
-              placeholder={f.type === 'time' ? '14:30' : 'Minutes'}
-              hint={f.hint}
-            />
-          ))}
+          {fields.map((f) =>
+            f.type === 'time' ? (
+              <TimeField
+                key={f.key}
+                label={f.label}
+                value={values[f.key] ?? ''}
+                onChange={(v) => setValues({ ...edits, [f.key]: v })}
+                optional={f.optional}
+                midnight={f.key === 'bedtime'}
+                hint={f.hint}
+              />
+            ) : (
+              <Field
+                key={f.key}
+                label={f.label + (f.optional ? ' · optional' : '')}
+                value={values[f.key] ?? ''}
+                onChange={(v) => setValues({ ...edits, [f.key]: v })}
+                numeric
+                placeholder="Minutes"
+                hint={f.hint}
+              />
+            ),
+          )}
           {scheduleError && (
             <Text accessibilityRole="alert" style={styles.alert}>
               {scheduleError}
@@ -379,18 +391,7 @@ export default function SettingsScreen() {
               disabled={!goalName.trim()}
               needs="Give the goal a name to save it."
               onPress={() =>
-                void change((s) => ({
-                  ...s,
-                  source: 'personal',
-                  goals: [
-                    ...s.goals,
-                    {
-                      id: newId('goal'),
-                      title: goalName.trim(),
-                      desiredState: goalTarget.trim(),
-                    },
-                  ],
-                })).then((ok) => {
+                void change((s) => addGoal(s, newId('goal'), goalName, goalTarget)).then((ok) => {
                   if (ok) {
                     setGoalName('');
                     setGoalTarget('');
@@ -450,34 +451,7 @@ export default function SettingsScreen() {
       {editingGoal && (
         <GoalEditor key={editingGoal.id} goal={editingGoal} close={() => setEditingGoal(null)} />
       )}
-      <Sheet title="Import this setup?" visible={preview !== null} close={() => setPreview(null)}>
-        {preview && <SetupSummary summary={preview.summary} />}
-        {preview?.summary.conflicts.length ? (
-          <>
-            <Button
-              title={`Import and pause ${new Set(preview.summary.conflicts.map((c) => c.existing.id)).size} same-named`}
-              label="Import and pause the existing routines with the same names"
-              onPress={() => void confirmImport(true)}
-            />
-            <Button
-              secondary
-              title="Import and keep both"
-              label="Import and keep the existing same-named routines active too"
-              onPress={() => void confirmImport(false)}
-            />
-          </>
-        ) : (
-          <Button
-            title="Import"
-            label="Import this setup"
-            onPress={() => void confirmImport(false)}
-          />
-        )}
-        <Text style={styles.muted}>
-          Closing imports nothing. Importing never changes recorded history, and pausing a routine
-          keeps its history.
-        </Text>
-      </Sheet>
+      {setup.sheet}
       <StartTrackingSheet
         visible={confirmStart && state.source === 'demo'}
         close={() => setConfirmStart(false)}
@@ -502,115 +476,6 @@ export default function SettingsScreen() {
         />
       </Sheet>
     </Page>
-  );
-}
-
-const RISK_NAMES: Record<TradingUpdate['risk'][number], string> = {
-  maxContracts: 'contract',
-  thesisRisk: 'thesis-risk',
-  dailyLoss: 'daily loss',
-};
-
-/** "Updates Trading discipline: 2 items reworded and 6 hard violations added. …" */
-function tradingUpdateText(update: TradingUpdate): string {
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-  const parts = [
-    update.reworded > 0 && `${plural(update.reworded, 'item')} reworded`,
-    update.violationsAdded > 0 && `${plural(update.violationsAdded, 'hard violation')} added`,
-    update.maxEntries !== null && `the entry limit set to ${update.maxEntries}`,
-    update.instrument !== null && `the instrument set to ${update.instrument}`,
-    update.risk.length > 0 &&
-      `the ${update.risk.map((k) => RISK_NAMES[k]).join(', ')} limit${update.risk.length === 1 ? '' : 's'} set`,
-  ].filter((p): p is string => !!p);
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
-  return `Updates Trading discipline${list ? `: ${list}` : ''}. Earlier reviews keep their answers and stay scored as they were.`;
-}
-
-/** What a setup import would change, in plain lists. */
-function SetupSummary({ summary }: { summary: SetupPreview }) {
-  const line = (label: string, items: string[]) =>
-    items.length ? (
-      <Text style={styles.body}>
-        {label} ({items.length}): {items.join(', ')}
-      </Text>
-    ) : null;
-  return (
-    <View style={{ gap: 8 }}>
-      {line('New programs', summary.programsAdded)}
-      {line('Programs replaced by the file', summary.programsReplaced)}
-      {line('Already the same', summary.programsUnchanged)}
-      {line('New routines', summary.routinesAdded)}
-      {line('Routines replaced by the file', summary.routinesReplaced)}
-      {line('Optional (never block Day Cleared)', summary.optionalRoutines)}
-      {line('Placed in the order of the day', summary.orderSet)}
-      {summary.plansAdded + summary.circuitsAdded + summary.rulebooksAdded > 0 && (
-        <Text style={styles.body}>
-          Adds {summary.plansAdded} workout plan{summary.plansAdded === 1 ? '' : 's'},{' '}
-          {summary.circuitsAdded} timed circuit{summary.circuitsAdded === 1 ? '' : 's'} and{' '}
-          {summary.rulebooksAdded} rulebook{summary.rulebooksAdded === 1 ? '' : 's'}
-          {summary.rulebooksWithTrading > 0 &&
-            (summary.rulebooksAdded === 1
-              ? ' with Trading discipline, starting today'
-              : `, ${summary.rulebooksWithTrading} with Trading discipline, starting today`)}
-          .
-        </Text>
-      )}
-      {summary.tradingAdded > 0 && (
-        <Text style={styles.body}>
-          Adds Trading discipline to your trading rulebook, starting today. Its rules and earlier
-          reviews stay exactly as they are.
-        </Text>
-      )}
-      {summary.tradingUpdated && (
-        <Text testID="trading-updated" style={styles.body}>
-          {tradingUpdateText(summary.tradingUpdated)}
-        </Text>
-      )}
-      {line(
-        `Hard violations left out: Trading discipline holds at most ${MAX_VIOLATIONS}`,
-        summary.violationsLeftOut,
-      )}
-      {keptRecordsText(summary.recordsKept) && (
-        <Text style={styles.muted}>
-          {keptRecordsText(summary.recordsKept)} in the file left alone: those routines already have
-          one.
-        </Text>
-      )}
-      {line('Kept as set on this device', summary.keptOnDevice)}
-      <Text style={styles.body}>
-        {summary.historyKept.days + summary.historyKept.records > 0
-          ? `Keeps your history: ${summary.historyKept.days} recorded day${summary.historyKept.days === 1 ? '' : 's'} and ${summary.historyKept.records} record${summary.historyKept.records === 1 ? '' : 's'}, unchanged. `
-          : ''}
-        Nothing new starts before today.
-      </Text>
-      <Text style={styles.muted}>
-        {summary.settingsReplaced ? 'Replaces your schedule settings. ' : 'Keeps your settings. '}
-        {summary.notesReplaced ? 'Replaces your notes.' : 'Keeps your notes.'}
-      </Text>
-      {summary.gaps.length > 0 && (
-        <View style={{ gap: 4 }}>
-          <Text style={styles.heading}>Still to set up after importing</Text>
-          {summary.gaps.map((gap) => (
-            <Text key={gap} style={styles.muted}>
-              • {gap}
-            </Text>
-          ))}
-        </View>
-      )}
-      {summary.conflicts.length > 0 && (
-        <View accessibilityRole="alert" style={[styles.notice, { gap: 6 }]}>
-          <Text style={styles.heading}>Same names as your routines</Text>
-          {summary.conflicts.map((c) => (
-            <Text key={`${c.existing.id}-${c.incoming.id}`} style={styles.muted}>
-              {c.title}: yours in {c.existing.program}, the file&apos;s in {c.incoming.program}
-            </Text>
-          ))}
-          <Text style={styles.muted}>
-            Pause yours to avoid doing the same thing twice, or keep both.
-          </Text>
-        </View>
-      )}
-    </View>
   );
 }
 

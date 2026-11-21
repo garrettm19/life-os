@@ -50,6 +50,21 @@ describe("Today's hero headline", () => {
     expect(leadLabel(lead)).not.toMatch(/\b0\b|missed|broke|lost/i);
   });
 
+  it('after a run with nothing cleared this week, names the next step and never a miss', () => {
+    const lead = heroLead(
+      { current: 0, best: 9 },
+      marks(['missed', 'missed', 'none', 'none', 'missed', 'missed', 'open']),
+      false,
+    );
+    expect(lead).toMatchObject({
+      title: 'A fresh start today',
+      figure: null,
+      best: 9,
+      note: 'Clear today to start a new run',
+    });
+    expect(leadLabel(lead)).toBe('A fresh start today. Clear today to start a new run. Best 9.');
+  });
+
   it('starts a first run without a zero', () => {
     const lead = heroLead(
       { current: 0, best: 0 },

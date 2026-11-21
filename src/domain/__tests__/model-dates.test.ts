@@ -1,5 +1,15 @@
 import { describe, expect, it } from '@jest/globals';
-import { calendarDays, daysBetween, shortDate, weekStartOf } from '../model';
+import {
+  calendarDays,
+  daysBetween,
+  parseTime,
+  readTime,
+  shortDate,
+  timeInput,
+  weekStartOf,
+  emptyState,
+  validateSettings,
+} from '../model';
 
 // Calendar helpers on local date keys. Synthetic dates only; the suite runs in several zones.
 describe('local calendar helpers', () => {
@@ -33,5 +43,81 @@ describe('local calendar helpers', () => {
     expect(shortDate('2026-11-09')).toBe('Nov 9');
     expect(shortDate('2027-01-01')).toBe('Jan 1');
     expect(() => shortDate('2026-02-30')).toThrow();
+  });
+});
+
+describe('typed times of day', () => {
+  it.each([
+    ['0:00', 0],
+    ['7:30', 450],
+    ['07:30', 450],
+    ['19:30', 1170],
+    ['7:30 am', 450],
+    ['7:30 PM', 1170],
+    ['7:30pm', 1170],
+    ['7 pm', 1140],
+    ['7pm', 1140],
+    ['7:30 p.m.', 1170],
+    ['7:05a', 425],
+    ['12am', 0],
+    ['12:30 am', 30],
+    ['12pm', 720],
+    ['12:45 PM', 765],
+    ['  9:00 AM  ', 540],
+  ])('reads %p as %p minutes', (text, minutes) => {
+    expect(parseTime(text)).toBe(minutes);
+  });
+
+  it.each([
+    '730',
+    '1930',
+    '7',
+    '13pm',
+    '0am',
+    '0:30 pm',
+    '7:60',
+    '24:00',
+    '25:00',
+    'seven',
+    '7:3',
+    '',
+  ])('refuses %p', (text) => {
+    expect(() => parseTime(text)).toThrow();
+  });
+
+  it('takes the end of the day only where midnight is allowed', () => {
+    expect(parseTime('24:00', true)).toBe(1440);
+    expect(parseTime('12 am', true)).toBe(1440);
+    expect(parseTime('12:00 AM', true)).toBe(1440);
+    expect(parseTime('12:30 am', true)).toBe(30);
+    expect(parseTime('0:00', true)).toBe(0);
+    expect(() => parseTime('24:00')).toThrow();
+  });
+
+  it('prefills a saved time in the 12-hour form it reads back as', () => {
+    for (const minutes of [0, 1, 450, 719, 720, 1170, 1439]) {
+      expect(parseTime(timeInput(minutes))).toBe(minutes);
+    }
+    expect(timeInput(1440)).toBe('12:00 AM');
+    expect(parseTime(timeInput(1440), true)).toBe(1440);
+  });
+
+  it('reads nothing back from a blank or wrong entry', () => {
+    expect(readTime('')).toBeNull();
+    expect(readTime('730')).toBeNull();
+    expect(readTime('7pm')).toBe(1140);
+  });
+});
+
+describe('the bedtime message', () => {
+  it('names midnight the way the time fields take it', () => {
+    const bad = { ...emptyState().settings, wake: 600, bedtime: 540 };
+    expect(() => validateSettings(bad)).toThrow(
+      'Bedtime must follow the start of the day, within this day (12 AM means midnight).',
+    );
+    // 12 AM in the bedtime field is the end of the day, which the message promises.
+    expect(() =>
+      validateSettings({ ...emptyState().settings, bedtime: parseTime('12 AM', true) }),
+    ).not.toThrow();
   });
 });

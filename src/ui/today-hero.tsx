@@ -5,6 +5,7 @@ import { WeekDayMark } from '../domain/moments';
 import { styles } from './components';
 import { ClearedTitle } from './mission';
 import { PressableScale } from './motion';
+import { Glyph } from './settings-icon';
 import { DayProgressBody } from './objective-board';
 import { WeekStrip, weekLabel } from './week-strip';
 import { depth, fonts, palette, radius, type, useWash } from './theme';
@@ -72,11 +73,12 @@ export function heroLead(
     unit: '',
     best,
     atBest: false,
+    // A next step, never "missed": the best run already sits beside the headline.
     note:
       recent > 0
         ? `${recent} cleared in the last 7 days`
         : best
-          ? null
+          ? 'Clear today to start a new run'
           : 'Clear today to start a run',
   };
 }
@@ -108,6 +110,7 @@ export function TodayHero({
   hasActive,
   celebrate,
   onOpenStreak,
+  finish,
 }: {
   progress: DayProgress;
   /** The Day Clear streak through today: an open today holds the run into it. */
@@ -119,9 +122,32 @@ export function TodayHero({
   /** The day was just cleared on this screen: the headline rises in once. */
   celebrate: boolean;
   onOpenStreak: () => void;
+  /**
+   * Yesterday can still be finished (`yesterdayOpen`): its line takes the note's place in the card,
+   * so it adds no row above the list.
+   */
+  finish?: { remaining: number; onOpen: () => void; onDismiss: () => void };
 }) {
   const cleared = progress.cleared;
-  const lead = heroLead(streak, week, cleared);
+  const led = heroLead(streak, week, cleared);
+  // With yesterday to finish, its line takes the note's row, with the best run at its end.
+  const lead = finish ? { ...led, note: null } : led;
+  const bestText = lead.best !== null && (
+    <Text
+      maxFontSizeMultiplier={1.3}
+      style={{
+        ...fonts.semibold,
+        fontSize: 15,
+        lineHeight: 20,
+        color: lead.atBest ? palette.doneText : palette.label2,
+      }}>
+      {lead.atBest ? 'Your best' : 'Best '}
+      {!lead.atBest && <Text style={fonts.figure}>{lead.best}</Text>}
+    </Text>
+  );
+  // The streak figure always keeps its row (VoiceOver reads it from the headline); with yesterday
+  // to finish, the note gives way and the best run moves to the Finish line.
+  const noteRow = lead.figure !== null || (!finish && (lead.note || lead.best !== null));
   const sunrise = useWash(
     (c) =>
       `radial-gradient(ellipse at 0% 0%, ${c.washWarm} 0%, ${c.washRose} 30%, ${c.surface} 72%)`,
@@ -165,7 +191,7 @@ export function TodayHero({
           </Text>
         )}
         {/* The figure under the headline, never as it, with the best run at the line's end. */}
-        {(lead.figure !== null || lead.note || lead.best !== null) && (
+        {noteRow && (
           <View style={[styles.spread, { alignItems: 'baseline', columnGap: 8, rowGap: 0 }]}>
             {lead.figure !== null ? (
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexShrink: 1 }}>
@@ -196,22 +222,42 @@ export function TodayHero({
                 {lead.note ?? ''}
               </Text>
             )}
-            {lead.best !== null && (
-              <Text
-                maxFontSizeMultiplier={1.3}
-                style={{
-                  ...fonts.semibold,
-                  fontSize: 15,
-                  lineHeight: 20,
-                  color: lead.atBest ? palette.doneText : palette.label2,
-                }}>
-                {lead.atBest ? 'Your best' : 'Best '}
-                {!lead.atBest && <Text style={fonts.figure}>{lead.best}</Text>}
-              </Text>
-            )}
+            {!finish && bestText}
           </View>
         )}
       </View>
+      {finish && (
+        <View
+          testID="finish-yesterday"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            // The 44 pt targets reach into the card's gaps, so the line takes a note's height.
+            marginTop: -14,
+            marginBottom: -14,
+            marginRight: -12,
+          }}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`Finish yesterday: ${finish.remaining} still open`}
+            onPress={finish.onOpen}
+            containerStyle={{ flex: 1 }}
+            style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text maxFontSizeMultiplier={1.4} style={{ ...type.meta, color: palette.label2 }}>
+              Yesterday · {finish.remaining} still open ·{' '}
+              <Text style={{ ...fonts.semibold, color: palette.label }}>Finish ›</Text>
+            </Text>
+          </PressableScale>
+          {bestText}
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Hide Finish yesterday"
+            onPress={finish.onDismiss}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Glyph name="close" color={palette.label3} size={12} />
+          </PressableScale>
+        </View>
+      )}
       <PressableScale
         accessibilityRole="button"
         accessibilityLabel={`${weekLabel(week)} Streak details.`}

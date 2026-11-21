@@ -5,11 +5,13 @@ import { MoneyReview, State } from '../model';
 import {
   changeTone,
   currentPriority,
+  deleteMoneyReview,
   fieldChanges,
   lastReported,
   saveMoneyReview,
   setPriorityDone,
 } from '../money';
+import { makeBlock, setStatus } from '../planner';
 import { moneySince } from '../series';
 import { trainingState } from '../../test-support/fixtures';
 
@@ -140,5 +142,53 @@ describe("the week's money priority", () => {
         moneyReviews: [{ ...state.moneyReviews[0], priorityDoneAt: 'tuesday' }],
       }),
     ).toThrow('priority');
+  });
+});
+
+describe('deleting a review that completed its objective', () => {
+  const NOV9 = '2026-11-09';
+  const BLOCK = `${NOV8}:routine:money-review`;
+  // The occurrence was moved from Sunday to Monday and keeps its ID; Sunday holds another Done.
+  function reviewed(): State {
+    const state = trainingState();
+    const other = makeBlock(`${NOV8}:manual:1`, 'Another objective', null, 15);
+    const moved = {
+      ...makeBlock(BLOCK, 'Money review', null, 15),
+      routineId: 'money-review',
+      movedFrom: NOV8,
+    };
+    state.days = {
+      [NOV8]: setStatus({ date: NOV8, blocks: [other], revisions: [] }, other.id, 'done'),
+      [NOV9]: { date: NOV9, blocks: [moved], revisions: [] },
+    };
+    return saveMoneyReview(
+      state,
+      { ...base, savings: 240000, date: NOV8, occurrence: { date: NOV9, blockId: BLOCK } },
+      'r',
+      stamp(NOV9),
+    );
+  }
+  const status = (state: State, date: string, id: string) =>
+    state.days[date].blocks.find((b) => b.id === id)!.status;
+
+  it('undoes the objective found by occurrenceId, in the same change as the deletion', () => {
+    const state = reviewed();
+    expect(state.moneyReviews.map((r) => r.occurrenceId)).toEqual([BLOCK]);
+    expect(status(state, NOV9, BLOCK)).toBe('done');
+    const deleted = deleteMoneyReview(state, 'r', { undo: true });
+    expect(deleted.moneyReviews).toEqual([]);
+    expect(deleted.days[NOV9].blocks[0]).toMatchObject({ status: 'planned', actualAt: null });
+    // The review's own date is not where its objective is: another Done there is left alone.
+    expect(status(deleted, NOV8, `${NOV8}:manual:1`)).toBe('done');
+    expect(decodeState(JSON.parse(JSON.stringify(deleted)))).toEqual(deleted);
+  });
+
+  it('keeps the objective Done when asked, and a review with no objective deletes alone', () => {
+    const kept = deleteMoneyReview(reviewed(), 'r');
+    expect(kept.moneyReviews).toEqual([]);
+    expect(status(kept, NOV9, BLOCK)).toBe('done');
+    const plain = review(trainingState(), 'p', NOV8, { savings: 100 });
+    expect(deleteMoneyReview(plain, 'p', { undo: true }).days).toBe(plain.days);
+    expect(() => deleteMoneyReview(plain, 'missing')).toThrow('This review no longer exists.');
   });
 });

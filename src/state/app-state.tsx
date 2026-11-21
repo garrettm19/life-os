@@ -62,7 +62,6 @@ const afterPaint = () =>
 type Context = {
   state: State;
   ready: boolean;
-  busy: boolean;
   error: string | null;
   clearError: () => void;
   retry: () => void;
@@ -189,8 +188,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     load();
   }, [load]);
   const value = useMemo(
-    () => ({ state, ready, busy, error, clearError, retry, change }),
-    [state, ready, busy, error, clearError, retry, change],
+    () => ({ state, ready, error, clearError, retry, change }),
+    [state, ready, error, clearError, retry, change],
   );
   const isSaving = useCallback(() => pending.current > 0, []);
   const save = useMemo(() => ({ change, isSaving }), [change, isSaving]);

@@ -230,9 +230,9 @@ test('an untouched day shows no Fern, and Ember only on the next thing to do and
   page,
 }) => {
   await seed(page, studyState(), { clock: new Date(2026, 10, 9, 9), route: '/' });
-  await expect(page.getByText('to clear the day')).toBeVisible();
-  // The goal line counts down in plain text until the day is cleared.
-  await expect(page.getByText(/to clear the day/)).toHaveCSS('color', rgb(palette.label));
+  await expect(page.getByTestId('today-list')).toBeVisible();
+  // An untouched day says its count once: no goal line repeating it.
+  await expect(page.getByText(/to clear the day/)).toHaveCount(0);
   // The list has no primary button: Fern arrives only with done work.
   expect(await colorOnScreen(page, palette.done)).toEqual([]);
   // Ember marks now: the first open objective's check, and today in the hero card's chain (its
@@ -247,6 +247,8 @@ test('an untouched day shows no Fern, and Ember only on the next thing to do and
       (await colorOnScreen(page, palette.done)).some((n) => n.includes('Job search')),
     )
     .toBe(true);
+  // From the first Done, the goal line counts down in plain text until the day is cleared.
+  await expect(page.getByText(/to clear the day|to go$/)).toHaveCSS('color', rgb(palette.label));
 });
 
 test("Today's trading row says its status in the market's amber, never Ember", async ({ page }) => {
@@ -302,9 +304,29 @@ test('a past day never opened reads in label3, which small text can read', async
     clock: new Date(2026, 10, 11, 9),
     route: '/week',
   });
-  const status = page.getByText('Not opened', { exact: true });
+  const status = page.getByText('Not recorded', { exact: true });
   await expect(status).toHaveCount(1);
   await expect(status).toHaveCSS('color', rgb(palette.label3));
+});
+
+test('a past day left open reads Not cleared in secondary text, never Ember', async ({ page }) => {
+  // Wednesday, looking back at Monday, which was opened and left open.
+  const opened = ensureChecklistDay(
+    MON,
+    studyState().settings,
+    studyState().programs,
+    undefined,
+    new Date(2026, 10, 9, 9).toISOString(),
+  );
+  await seed(page, withDay(studyState(), opened), {
+    clock: new Date(2026, 10, 11, 9),
+    route: `/?date=${MON}`,
+  });
+  const line = page.getByText(/^Not cleared · \d+ not done$/);
+  await expect(line).toBeVisible();
+  // Secondary text on the quiet fill: never Ember, which means now.
+  await expect(line).toHaveCSS('color', rgb(palette.label2));
+  await expect(line.locator('..')).toHaveCSS('background-color', rgb(palette.fill));
 });
 
 test('a plan set up mid-week reads the days before it as before you started, not missed', async ({
@@ -316,7 +338,7 @@ test('a plan set up mid-week reads the days before it as before you started, not
   const before = page.getByText('Before you started', { exact: true });
   await expect(before).toHaveCount(2);
   await expect(before.first()).toHaveCSS('color', rgb(palette.label3));
-  await expect(page.getByText('Not opened', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Not recorded', { exact: true })).toHaveCount(0);
 });
 
 test('at 320 pt the selected tab, the tile figures and the journey figures are never cut', async ({
@@ -502,7 +524,7 @@ for (const scheme of ['dark', 'light'] as const)
       page,
     }) => {
       await seed(page, studyState(), { clock: new Date(2026, 10, 9, 9), route: '/' });
-      await expect(page.getByText(/to clear the day/)).toBeVisible();
+      await expect(page.getByTestId('today-list')).toBeVisible();
       expect(await lowContrast(page), 'Today').toEqual([]);
       await seed(page, demoState(MON), { clock: new Date(2026, 10, 9, 9), route: '/' });
       await expect(page.getByTestId('today-list')).toBeVisible();

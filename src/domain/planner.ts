@@ -428,40 +428,92 @@ export function ensureChecklistDay(
   };
   return record(previous ? revision(previous, blocks, 'Ensure due checklist items', now) : result);
 }
+/**
+ * Adds a block, or edits one already on the day. The block editor on Today is the only caller that
+ * edits: its sheet holds a copy of the block from when it opened, and a Done, Skip or bundled
+ * completion can be recorded meanwhile (a widget tick applied on return, a row tick, a recorder).
+ * So an edit takes only the fields that sheet changes and keeps everything else as stored now.
+ */
 export function editBlock(
   day: Day,
   changed: Block,
   settings: Settings,
   now = new Date().toISOString(),
 ): Day {
-  if (!changed.title.trim()) throw new Error('Give this block a name.');
-  if (
-    changed.duration !== null &&
-    (!Number.isInteger(changed.duration) || changed.duration < 1 || changed.duration > 720)
-  )
-    throw new Error('Duration must be 1–720 whole minutes.');
-  if (changed.start !== null) {
-    if (changed.duration === null) throw new Error('Set a duration before scheduling.');
-    if (
-      !Number.isInteger(changed.start) ||
-      changed.start < settings.wake ||
-      changed.start + changed.duration > settings.bedtime
-    )
-      throw new Error('This block is outside your wake-to-bedtime window.');
-    if (day.blocks.some((b) => b.id !== changed.id && overlaps(b, changed)))
-      throw new Error('That slot overlaps another block. Choose a free time.');
-  }
   const current = day.blocks.find((b) => b.id === changed.id);
   // A routine's occurrence is only ever edited where it is: adding it again would make a second copy.
   if (!current && changed.routineId) throw new Error('This block no longer exists.');
-  // A time editor may have opened before a bundled completion was recorded.
-  if (current?.bundledSteps)
-    changed = { ...changed, bundledSteps: copyBlock(current).bundledSteps };
-  const exists = !!current;
-  const blocks = exists
-    ? day.blocks.map((b) => (b.id === changed.id ? changed : b))
-    : [...day.blocks, changed];
-  return revision(day, blocks, exists ? 'Edit block' : 'Add block', now);
+  const next: Block = current
+    ? {
+        ...current,
+        title: changed.title,
+        start: changed.start,
+        duration: changed.duration,
+        fixed: changed.fixed,
+        reason: changed.reason,
+      }
+    : changed;
+  if (!next.title.trim()) throw new Error('Give this block a name.');
+  if (
+    next.duration !== null &&
+    (!Number.isInteger(next.duration) || next.duration < 1 || next.duration > 720)
+  )
+    throw new Error('Duration must be 1–720 whole minutes.');
+  if (next.start !== null) {
+    if (next.duration === null) throw new Error('Set a duration before scheduling.');
+    if (
+      !Number.isInteger(next.start) ||
+      next.start < settings.wake ||
+      next.start + next.duration > settings.bedtime
+    )
+      throw new Error('This block is outside your wake-to-bedtime window.');
+    if (day.blocks.some((b) => b.id !== next.id && overlaps(b, next)))
+      throw new Error('That slot overlaps another block. Choose a free time.');
+  }
+  const blocks = current
+    ? day.blocks.map((b) => (b.id === next.id ? next : b))
+    : [...day.blocks, next];
+  return revision(day, blocks, current ? 'Edit block' : 'Add block', now);
+}
+/** A block added by hand on Today: no routine behind it, and an ID from the block editor. */
+export function isManualBlock(block: Block, date: string): boolean {
+  return block.routineId === null && block.id.startsWith(`${date}:manual:`);
+}
+
+/**
+ * Removes a block added by hand, recording a revision so the plan it left stays on record. Only a
+ * hand-added block on `today` or later can go: a routine's occurrence is paused or skipped instead,
+ * and a past day is history (it can still be skipped).
+ */
+export function removeBlock(
+  day: Day,
+  id: string,
+  today: string,
+  now = new Date().toISOString(),
+): Day {
+  const block = day.blocks.find((b) => b.id === id);
+  if (!block) throw new Error('This block no longer exists.');
+  if (!isManualBlock(block, day.date))
+    throw new Error('Only a block added by hand can be deleted. Skip or pause a routine instead.');
+  if (day.date < today) throw new Error('A past day keeps its blocks. Skip this one instead.');
+  return revision(
+    day,
+    day.blocks.filter((b) => b.id !== id),
+    'Remove block',
+    now,
+  );
+}
+/**
+ * The day holding a Done occurrence, found by its block ID wherever it sits (a moved occurrence keeps
+ * its ID on another day), or null when it is not done. A record that completed an objective (a
+ * weight, a money review) is linked by this ID, so deleting the record can undo the right block.
+ */
+export function doneOccurrenceDay(days: Record<string, Day>, blockId: string): Day | null {
+  return (
+    Object.values(days).find((d) =>
+      d.blocks.some((b) => b.id === blockId && b.status === 'done'),
+    ) ?? null
+  );
 }
 export function setStatus(
   day: Day,

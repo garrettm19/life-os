@@ -167,6 +167,14 @@ export function rangeWindow(range: ProgressRange, today: string): RangeWindow {
   };
 }
 
+/**
+ * Why a tile has no change: "Nothing recorded in the previous 4 weeks". Over a year that is the
+ * usual case for a plan younger than two years, so the year range shows the figure alone (null).
+ */
+function nothingBefore(window: RangeWindow, words: string): string | null {
+  return window.range === '1y' ? null : words;
+}
+
 /** "+3 vs previous 12 weeks", "−2 vs previous 12 weeks", "Same as previous 12 weeks". */
 export function changeText(delta: number, versus: string): string {
   if (delta === 0) return `Same as ${versus}`;
@@ -246,18 +254,43 @@ function tally<K extends string>(
 
 const inProgress = (window: RangeWindow, weekStart: string) => weekStart === weekStartOf(window.to);
 
+/** Days per sparkline point: a week, or four weeks over a year (13 points). */
+const spanDays = (window: RangeWindow) => (window.weeks > 12 ? 28 : 7);
+
+/** The sparkline span a date falls in, counted from the range's first Monday. */
+const spanIndex = (window: RangeWindow, date: string) =>
+  Math.floor(daysBetween(window.from, date) / spanDays(window));
+
 /**
  * A sparkline of about a dozen points: a tile is too small for more to read as a trend. Points are
- * gathered by week, or by four weeks over a year (13 points), and each span gives its total, its
- * last value (a streak as it stood) or its mean (a score, to one decimal).
+ * gathered by week, or by four weeks over a year, and each span gives its total, its last value (a
+ * streak as it stood) or its mean (a score, to one decimal).
+ *
+ * A total for the span that holds today is only part of one, so it would end every line on a dip
+ * early in the week: a `sum` leaves that span out and the tile says it in words (`soFar`). A
+ * `last` keeps it, since a streak as it stands today is whole.
+ *
+ * Fewer than three points draw no line: two are a comparison, not a trend, and a streak's two
+ * would draw a broken run as a fall to today. The tile then shows its figure alone.
+ *
+ * `asBefore` exempts the trading tile from both rules: its line keeps the span in progress and
+ * any number of points.
  */
-function sparkOf(window: RangeWindow, points: Point[], fold: 'sum' | 'last' | 'mean'): Point[] {
-  const span = window.weeks > 12 ? 28 : 7;
+function sparkOf(
+  window: RangeWindow,
+  points: Point[],
+  fold: 'sum' | 'last' | 'mean',
+  { asBefore = false }: { asBefore?: boolean } = {},
+): Point[] {
+  const span = spanDays(window);
+  const current = spanIndex(window, window.to);
   const spans = new Map<number, number[]>();
   for (const p of points) {
-    const i = Math.floor(daysBetween(window.from, p.date) / span);
+    const i = spanIndex(window, p.date);
+    if (fold === 'sum' && !asBefore && i === current) continue;
     spans.set(i, [...(spans.get(i) ?? []), p.y]);
   }
+  if (!asBefore && spans.size < 3) return [];
   return [...spans].map(([i, ys]) => ({
     date: shiftDate(window.from, i * span),
     y:
@@ -267,6 +300,23 @@ function sparkOf(window: RangeWindow, points: Point[], fold: 'sum' | 'last' | 'm
           ? ys.reduce((a, b) => a + b, 0)
           : Math.round((10 * ys.reduce((a, b) => a + b, 0)) / ys.length) / 10,
   }));
+}
+
+/**
+ * The span a total's sparkline leaves out, in words: "This week so far · 2", or over a year "Last
+ * 4 weeks so far · 6" (the four-week span in progress, which can hold up to three finished weeks).
+ * `weekly` is the range's count per week, `total` the tile's figure. Nothing while the span has
+ * none yet, so a tile never ends on a zero, and nothing when the span holds the whole figure, which
+ * the tile already shows. The words after "This week" stay together when the line wraps.
+ */
+function soFarText(window: RangeWindow, weekly: number[], total: number): string | null {
+  const current = spanIndex(window, window.to);
+  const count = weekly
+    .filter((_, i) => spanIndex(window, window.weekStarts[i]) === current)
+    .reduce((a, b) => a + b, 0);
+  if (count === 0 || count === total) return null;
+  const name = spanDays(window) === 7 ? 'This week' : 'Last 4 weeks';
+  return `${name} so\u00a0far\u00a0·\u00a0${count}`;
 }
 
 // Tiles.
@@ -286,13 +336,18 @@ export type Tile = {
   change: string | null;
   /** A small trend under the figure, oldest first: one point per week or per session. */
   spark: Point[];
+  /**
+   * The week in progress in words ("This week so far · 2"), for a tile whose sparkline leaves it
+   * out; null otherwise or while the week has none yet.
+   */
+  soFar: string | null;
   /** What will fill an empty tile, in one short line; null once it has a value. */
   empty: string | null;
 };
 
 /**
- * The Day Clear streak now, against the streak as it stood at the same point a range ago. `runs` is
- * `dayClearRuns` through today.
+ * The Day Clear streak now and the best run, with the run as it stood at the end of each week for
+ * the sparkline. `runs` is `dayClearRuns` through today.
  */
 export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
   const label = 'Day Clear streak';
@@ -307,6 +362,7 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'Clear a day on Today to start the streak.',
     };
   const { current, best } = runs.at(-1)!;
@@ -318,8 +374,6 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
     while (next < runs.length && runs[next].date <= date) found = runs[next++];
     return found;
   };
-  const then = at(window.previous.to);
-  const delta = then ? current - then.current : null;
   const spark: Point[] = [];
   for (const weekStart of window.weekStarts) {
     const end = shiftDate(weekStart, 6);
@@ -332,10 +386,12 @@ export function streakTile(window: RangeWindow, runs: StreakRun[]): Tile {
     label,
     value: plural(current, 'day'),
     detail: `Best ${best}`,
-    delta,
-    change:
-      delta === null ? `Nothing recorded ${window.words.ago}` : changeText(delta, window.words.ago),
+    // No change against a range ago: a run restarts at 0, so "−2 vs 4 weeks ago" would only ever
+    // count down a break. The figure and the best run say it.
+    delta: null,
+    change: null,
     spark: sparkOf(window, spark, 'last'),
+    soFar: null,
     empty: null,
   };
 }
@@ -369,6 +425,7 @@ export function clearedTile(window: RangeWindow, runs: StreakRun[]): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'A day counts here once it is cleared or over.',
     };
   const delta = previous.counted ? range.cleared - previous.cleared : null;
@@ -380,12 +437,17 @@ export function clearedTile(window: RangeWindow, runs: StreakRun[]): Tile {
     delta,
     change:
       delta === null
-        ? `Nothing recorded in the ${window.words.previous}`
+        ? nothingBefore(window, `Nothing recorded in the ${window.words.previous}`)
         : changeText(delta, window.words.previous),
     spark: sparkOf(
       window,
       weeks.flatMap((w, i) => (w.counted ? [{ date: window.weekStarts[i], y: w.cleared }] : [])),
       'sum',
+    ),
+    soFar: soFarText(
+      window,
+      weeks.map((w) => w.cleared),
+      range.cleared,
     ),
     empty: null,
   };
@@ -448,6 +510,7 @@ export function studyTile(window: RangeWindow, days: StudyDays): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: days.streak?.since
         ? 'Finish a study session to start counting.'
         : 'Study days count once the study streak starts.',
@@ -462,12 +525,17 @@ export function studyTile(window: RangeWindow, days: StudyDays): Tile {
     delta,
     change:
       delta === null
-        ? `Nothing recorded in the ${window.words.previous}`
+        ? nothingBefore(window, `Nothing recorded in the ${window.words.previous}`)
         : changeText(delta, window.words.previous),
     spark: sparkOf(
       window,
       weeks.flatMap((w, i) => (w.eligible ? [{ date: window.weekStarts[i], y: w.kept }] : [])),
       'sum',
+    ),
+    soFar: soFarText(
+      window,
+      weeks.map((w) => w.kept),
+      range.kept,
     ),
     empty: null,
   };
@@ -523,6 +591,7 @@ export function tradingTile(window: RangeWindow, days: TradingDays): Tile {
       delta: null,
       change: null,
       spark: [],
+      soFar: null,
       empty: 'Review a trading session to start the count.',
     };
   const clean = range.filter((s) => s.clean).length;
@@ -542,7 +611,9 @@ export function tradingTile(window: RangeWindow, days: TradingDays): Tile {
       window,
       range.map((s) => ({ date: s.date, y: s.clean ? 1 : 0 })),
       'sum',
+      { asBefore: true },
     ),
+    soFar: null,
     empty: null,
   };
 }
@@ -622,6 +693,23 @@ export type WeightCard = CardText & {
   change: number | null;
 };
 
+/**
+ * A measured body-weight change in words, in the unit it is shown in: "Down 3.2 lb since Sep 30",
+ * "Up 1.1 lb since Sep 30" or "No change since Sep 30". It states the direction and never judges
+ * it: which way is progress is the user's call.
+ */
+export function weightChangeText(
+  change: number,
+  unit: WeightUnit,
+  since: string,
+  today: string,
+): string {
+  const from = dateText(since, today);
+  return change === 0
+    ? `No change since ${from}`
+    : `${change < 0 ? 'Down' : 'Up'} ${Math.abs(change)} ${unit} since ${from}`;
+}
+
 export function weightCard(state: State, window: RangeWindow): WeightCard {
   const series = weightSince(state, window.from, window.to);
   const points = series?.points ?? [];
@@ -633,9 +721,7 @@ export function weightCard(state: State, window: RangeWindow): WeightCard {
     ? `No weigh-ins ${window.words.within}`
     : !measured
       ? `${last.y} ${unit} on ${dateText(last.date, window.to)}`
-      : measured.change === 0
-        ? `No change since ${dateText(measured.from.date, window.to)}`
-        : `${measured.change < 0 ? 'Down' : 'Up'} ${Math.abs(measured.change)} ${unit} since ${dateText(measured.from.date, window.to)}`;
+      : weightChangeText(measured.change, unit, measured.from.date, window.to);
   return {
     ...cardText(window, headline, points.length, {
       empty: 'Record a weigh-in to start the line.',
@@ -731,7 +817,10 @@ export type StudyCard = CardText & { weeks: StudyWeek[]; kept: number; eligible:
 /**
  * The Study tile has the range's study days and the streak, so the card's headline says where the
  * weeks are going: the latest finished week with scored days against the one before it ("Last week
- * 3 of 6 study days kept, down from 7 of 7"). Before any week with scored days has finished, this
+ * 3 of 6 study days kept, down from all 7"). A week with every day kept reads as all of them, on
+ * both sides. Up or down is said only when the days kept and their share moved the same way, so it
+ * always agrees with the bars, which count days kept ("Last week all 5 study days kept; 5 of 6 the
+ * week before"). Before any week with scored days has finished, this
  * week's days are the tile's figure, so the headline says only that no week has finished; when the
  * one finished week holds every scored day of the range, its days are the tile's figure too, so it
  * says only that it was the first.
@@ -748,7 +837,7 @@ function recentStudy(
     last.weekStart === shiftDate(weekStartOf(window.to), -7)
       ? 'Last week'
       : `The week of ${dateText(last.weekStart, window.to)}`;
-  const text = `${name} ${last.kept} of ${plural(last.eligible, 'study day')} kept`;
+  const text = `${name} ${keptText(last)} kept`;
   const before = finished.at(-2);
   if (!before)
     return last.kept === range.kept && last.eligible === range.eligible
@@ -760,10 +849,26 @@ function recentStudy(
     before.weekStart === shiftDate(last.weekStart, -7)
       ? 'the week before'
       : `the week of ${dateText(before.weekStart, window.to)}`;
+  const then = keptCount(before);
   if (share === earlier) return `${text}, the same share as ${which}`;
-  return `${text}, ${share > earlier ? 'up' : 'down'} from ${before.kept} of ${before.eligible}${
+  // The bars count days kept: a share that rose while the count stayed or fell is no "up" there.
+  if (Math.sign(share - earlier) !== Math.sign(last.kept - before.kept))
+    return `${text}; ${then} ${which === 'the week before' ? which : `in ${which}`}`;
+  return `${text}, ${share > earlier ? 'up' : 'down'} from ${then}${
     which === 'the week before' ? '' : ` in ${which}`
   }`;
+}
+
+/** "all 5" when every scored day of a week was kept, else "3 of 6". */
+function keptCount(w: { kept: number; eligible: number }): string {
+  return w.kept === w.eligible && w.eligible > 1
+    ? `all ${w.eligible}`
+    : `${w.kept} of ${w.eligible}`;
+}
+
+/** "all 5 study days", "3 of 6 study days" or "1 of 1 study day". */
+function keptText(w: { kept: number; eligible: number }): string {
+  return `${keptCount(w)} ${w.eligible === 1 ? 'study day' : 'study days'}`;
 }
 
 export function studyCard(state: State, window: RangeWindow, days: StudyDays): StudyCard {

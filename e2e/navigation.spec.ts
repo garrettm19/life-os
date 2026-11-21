@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { demoState } from '../src/domain/demo';
 import { seed } from './support/storage';
+import { showPaused } from './support/programs';
 
 // Top-level navigation: the four tabs are destinations, not a history. Repeated tab taps must not
 // stack copies of the same screen, and Back from a page opened on top returns to where it was
@@ -67,6 +68,7 @@ test('Back from pages opened on top returns where they were opened', async ({ pa
   // The demo's trading is paused, so Trading opens from Programs; Rules & GEX opens on top of
   // it, and Back walks down the same way: rules, Trading, Programs.
   await tab(page, 'Programs', 'Programs');
+  await showPaused(page);
   await page
     .getByRole('button', {
       name: 'Open the trading cockpit for Follow my trading plan',

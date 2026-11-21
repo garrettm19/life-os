@@ -1,6 +1,6 @@
 import { withDay } from './data';
 import { MoneyReview, State, dateObject, localDate, shiftDate } from './model';
-import { setStatus } from './planner';
+import { doneOccurrenceDay, setStatus } from './planner';
 import { LIMITS, validateMoneyReviews } from './records';
 
 const MONEY_FIELDS = ['cash', 'savings', 'debt', 'upcoming', 'contributed'] as const;
@@ -112,10 +112,24 @@ export function saveMoneyReview(state: State, input: MoneyInput, newId: string, 
   return next;
 }
 
-export function deleteMoneyReview(state: State, id: string): State {
-  if (!state.moneyReviews.some((r) => r.id === id))
-    throw new Error('This review no longer exists.');
-  return { ...state, moneyReviews: state.moneyReviews.filter((r) => r.id !== id) };
+/**
+ * Deletes a review. When it completed an objective, `undo` also puts that objective back to not done
+ * in the same change, so the review and the Done it earned leave together; without it the objective
+ * stays Done, as the user chose. The objective is found by the review's `occurrenceId`, never by date.
+ */
+export function deleteMoneyReview(
+  state: State,
+  id: string,
+  options: { undo?: boolean } = {},
+): State {
+  const review = state.moneyReviews.find((r) => r.id === id);
+  if (!review) throw new Error('This review no longer exists.');
+  let next: State = { ...state, moneyReviews: state.moneyReviews.filter((r) => r.id !== id) };
+  if (options.undo && review.occurrenceId) {
+    const day = doneOccurrenceDay(next.days, review.occurrenceId);
+    if (day) next = withDay(next, setStatus(day, review.occurrenceId, 'planned'));
+  }
+  return next;
 }
 
 export function sortedReviews(state: State): MoneyReview[] {

@@ -8,6 +8,7 @@ import {
   State,
   shiftDate,
 } from './model';
+import { doneOccurrenceDay, setStatus } from './planner';
 
 // Day Cleared and the Day Clear streak: the one rule that Today, Week, Progress, the streak and the
 // widgets all read. `dayProgress` counts a stored day's required objectives: an optional one never
@@ -127,7 +128,7 @@ export function openObjective(block: Block): ObjectiveLeaf | undefined {
 
 const UNKNOWN_TIMED_TITLE = 'A timed session';
 
-function findRoutine(programs: Program[], routineId: string): Routine | undefined {
+export function findRoutine(programs: Program[], routineId: string): Routine | undefined {
   for (const program of programs) {
     const routine = program.routines.find((item) => item.id === routineId);
     if (routine) return routine;
@@ -208,6 +209,45 @@ export function dayOutcome(state: State, date: string): DayOutcome {
   return 'open';
 }
 
+/** What undoing a Done occurrence would change, read before a record's delete offers the undo. */
+export type UndoEffect = {
+  /** The day the Done sits on (a moved occurrence keeps its ID on another day). */
+  date: string;
+  /** The objective's title as stored on that day. */
+  title: string;
+  /** That day counts as cleared now and would no longer with the objective not done. */
+  unclears: boolean;
+  /**
+   * Keeping the Done is the recommended choice: the day is past, so it can no longer be cleared
+   * again, and undoing would change its Day Cleared and the streak with it.
+   */
+  keepDone: boolean;
+};
+
+/**
+ * The effect of putting a Done occurrence back to planned, by `dayOutcome` before and after, or
+ * null when the occurrence is not Done anywhere. A record that completed an objective (a weight, a
+ * money review) shows this in its delete confirm, so undoing a Done never takes a Day Cleared away
+ * without saying so, and on a past day keeping the Done is what it recommends.
+ */
+export function undoEffect(state: State, blockId: string, today: string): UndoEffect | null {
+  const day = doneOccurrenceDay(state.days, blockId);
+  if (!day) return null;
+  const title = day.blocks.find((b) => b.id === blockId)!.title;
+  let unclears = false;
+  if (dayOutcome(state, day.date) === 'cleared') {
+    try {
+      const undone = setStatus(day, blockId, 'planned');
+      unclears =
+        dayOutcome({ ...state, days: { ...state.days, [day.date]: undone } }, day.date) !==
+        'cleared';
+    } catch {
+      // A block that cannot go back to planned (its slot is taken) cannot be undone either.
+    }
+  }
+  return { date: day.date, title, unclears, keepDone: unclears && day.date < today };
+}
+
 export function outcomeLabel(entry: StreakDay): string {
   if (entry.outcome === 'cleared') return 'Cleared';
   if (entry.outcome === 'protected')
@@ -255,7 +295,8 @@ export function streakHistory(
 
 export function streakCaption(current: number, best: number): string {
   if (current > 0) return current === 1 ? '1-day streak' : `${current}-day streak`;
-  if (best > 0) return 'New run started';
+  // No run is going: say how to start one, never claim one has started.
+  if (best > 0) return 'Clear a day to start a new run';
   return 'No streak yet';
 }
 
@@ -311,4 +352,72 @@ export function protectionLabel(protection: DayProtection): string {
     other: 'Other',
   };
   return labels[protection.reason];
+}
+
+/**
+ * Yesterday, when it can still be finished from Today: saved, not protected, not the demo, open
+ * with something left to tick, and with no due timed session missing from its board. Only
+ * yesterday, never an older day. Ticking it is honest: the streak is derived, so a cleared
+ * yesterday counts with no other step. `remaining` is from `dayProgress`, so it never differs from
+ * what that day's page shows.
+ */
+export function yesterdayOpen(
+  state: State,
+  today: string,
+): { date: string; remaining: number } | null {
+  if (state.source === 'demo') return null;
+  const date = shiftDate(today, -1);
+  const day = state.days[date];
+  if (!day || day.protection || dayOutcome(state, date) !== 'open') return null;
+  const progress = dayProgress(day, state.programs, date);
+  // A due timed session left off the board cannot be ticked on a past day, so such a day can no
+  // longer clear: offering it would open a page with no way to finish.
+  if (progress.missingTimed > 0) return null;
+  return progress.remaining > 0 ? { date, remaining: progress.remaining } : null;
+}
+
+/** One day of a month calendar: its outcome by the one rule, or later for a day still to come. */
+export type MonthDay = {
+  date: string;
+  outcome: DayOutcome | 'later';
+  today: boolean;
+};
+
+/** "2026-11" for a date key. */
+export function monthOf(date: string): string {
+  return date.slice(0, 7);
+}
+
+/**
+ * Every day of a month ("2026-11") read with `dayOutcome`, and how many were cleared. Days after
+ * `today` are later: never a miss. Each month is read on its own, so the calendar walks at most 31
+ * days whatever the history holds.
+ */
+export function monthOutcomes(
+  state: State,
+  month: string,
+  today: string,
+): { days: MonthDay[]; cleared: number } {
+  const days: MonthDay[] = [];
+  let cleared = 0;
+  for (let date = `${month}-01`; monthOf(date) === month; date = shiftDate(date, 1)) {
+    const outcome = date > today ? 'later' : dayOutcome(state, date);
+    if (outcome === 'cleared') cleared += 1;
+    days.push({ date, outcome, today: date === today });
+  }
+  return { days, cleared };
+}
+
+/** The months a calendar can show: from the first recorded day's to today's, oldest first. */
+export function calendarMonths(state: State, today: string): string[] {
+  const first = Object.keys(state.days).sort()[0];
+  const last = monthOf(today);
+  let month = first && monthOf(first) < last ? monthOf(first) : last;
+  const months = [month];
+  while (month < last) {
+    const [y, m] = month.split('-').map(Number);
+    month = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+    months.push(month);
+  }
+  return months;
 }

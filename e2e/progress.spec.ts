@@ -106,9 +106,14 @@ async function expectCards(page: Page, data: ProgressData) {
     await expect(el).toContainText(tile.label);
     if (tile.value) {
       await expect(el).toContainText(tile.value);
-      await expect(el).toContainText(tile.change!);
-      // A sparkline needs two points: one is not a trend.
+      // A change only where there is one to say: never on the streak, and over a year never a
+      // line that only says nothing was recorded a year ago.
+      if (tile.change) await expect(el).toContainText(tile.change);
+      else await expect(el).not.toContainText(/ vs |Nothing recorded/);
+      // A sparkline needs three points: one is not a trend, and two are only a comparison. A
+      // total's line leaves out the week in progress, which the tile gives in words.
       await expect(el.getByTestId('sparkline')).toHaveCount(tile.spark.length > 1 ? 1 : 0);
+      if (tile.soFar) await expect(el).toContainText(tile.soFar);
     } else await expect(el).toContainText(tile.empty!);
   }
   const ids = {
@@ -130,6 +135,22 @@ async function expectCards(page: Page, data: ProgressData) {
     else await expect(drawn).toHaveCount(0);
   }
 }
+
+test('mid-week, a total’s sparkline ends on last week and the tile says this week so far', async ({
+  page,
+}) => {
+  // Wednesday, October 21: the demo has cleared days this week, which the line leaves out.
+  const today = '2026-10-21';
+  const state = demoState(today);
+  const data = progress(state, DEFAULT_PROGRESS_RANGE, today);
+  const cleared = data.tiles.find((t) => t.id === 'cleared')!;
+  expect(cleared.soFar).toMatch(/^This week so\u00a0far\u00a0·\u00a0[1-9]\d*$/);
+  expect(cleared.spark.at(-1)!.date).toBe('2026-10-12');
+  await seed(page, state, { clock: new Date(2026, 9, 21, 20), route: '/review' });
+  const tile = page.getByTestId('tile-cleared');
+  await expect(tile).toContainText(cleared.soFar!);
+  await expect(tile.getByTestId('sparkline')).toHaveCount(cleared.spark.length > 1 ? 1 : 0);
+});
 
 test('a new plan: each tile and card says in one line what will fill it', async ({ page }) => {
   const state = withTradingBook(tracking(GRAPH_TODAY), GRAPH_TODAY);

@@ -10,6 +10,7 @@ import {
   displayDate,
   accountSetPause,
   localDate,
+  nextSource,
   parseTime,
   validateRoutine,
 } from './model';
@@ -105,7 +106,7 @@ export function upsertProgram(state: State, program: Program): State {
   };
   return {
     ...state,
-    source: 'personal',
+    source: nextSource(state),
     days: state.days,
     programs: existing
       ? state.programs.map((item) => (item.id === nextProgram.id ? nextProgram : item))
@@ -178,7 +179,7 @@ export function upsertRoutine(
     : [...programs, nextProgram];
   return {
     ...state,
-    source: 'personal',
+    source: nextSource(state),
     programs: nextPrograms,
     // A workout with logged sets keeps its occurrence, so the sets always stay reachable.
     days: reconcileEditedRoutine(

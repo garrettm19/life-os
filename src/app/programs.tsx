@@ -9,7 +9,7 @@ import {
   IntervalRoutine,
   Program,
   Routine,
-  clock,
+  timeInput,
   displayDate,
   displayTime,
   localDate,
@@ -26,8 +26,17 @@ import {
   upsertProgram,
   upsertRoutine,
 } from '../domain/routines';
-import { Button, Chip, Field, Page, SectionLabel, Sheet, styles } from '../ui/components';
-import { LinkButton, Segmented, Weekdays } from '../ui/controls';
+import {
+  Button,
+  Chip,
+  Field,
+  Page,
+  SectionLabel,
+  Sheet,
+  TimeField,
+  styles,
+} from '../ui/components';
+import { Disclosure, LinkButton, Segmented, Weekdays } from '../ui/controls';
 import { RoutineRow, routineKind } from '../ui/routine-row';
 import { ChoiceRow, Group, IconTile, SearchField, Toggle } from '../ui/list';
 import { programArea } from '../ui/areas';
@@ -61,6 +70,8 @@ export default function ProgramsScreen() {
   // Today's "Change days, privacy or pause" opens that routine's editor here.
   const linked = useLocalSearchParams<{ routine?: string }>().routine;
   const [search, setSearch] = useState(''),
+    [visit, setVisit] = useState(0),
+    [shown, setShown] = useState<Set<string> | null>(null),
     [editing, setEditing] = useState<{
       program: Program;
       routine: Routine;
@@ -121,16 +132,16 @@ export default function ProgramsScreen() {
     setRoutineName(routine.title);
     setGroup(program.group);
     setDuration(String(routine.duration ?? ''));
-    setStart(routine.preferredStart === null ? '' : clock(routine.preferredStart));
-    setThursday(routine.thursdayStart == null ? '' : clock(routine.thursdayStart));
-    setEarliest(routine.windowStart == null ? '' : clock(routine.windowStart));
-    setLatest(routine.windowEnd == null ? '' : clock(routine.windowEnd));
+    setStart(routine.preferredStart === null ? '' : timeInput(routine.preferredStart));
+    setThursday(routine.thursdayStart == null ? '' : timeInput(routine.thursdayStart));
+    setEarliest(routine.windowStart == null ? '' : timeInput(routine.windowStart));
+    setLatest(routine.windowEnd == null ? '' : timeInput(routine.windowEnd));
     setSteps(routine.steps.join('\n'));
     setDays(routine.weekdays);
     setEveryWeeks(String(routine.repeat?.everyWeeks ?? 1));
     setFollows(routine.follows ?? []);
     setOptional(!!routine.optional);
-    setUpBy(routine.anchor ? clock(currentUpBy(routine)!) : '');
+    setUpBy(routine.anchor ? timeInput(currentUpBy(routine)!) : '');
     setCountEarlier(false);
     setActivityChoices((routine.activities ?? []).join('\n'));
     setLinksText(formatLinks(routine.links ?? []));
@@ -443,10 +454,15 @@ export default function ProgramsScreen() {
   };
   useFocusEffect(
     useCallback(() => {
+      // What is paused is worked out as Programs comes into view, from the data as it is now, so
+      // a routine paused elsewhere meanwhile (a setup import in Settings) is folded on return.
+      setShown(null);
       return () => {
         setEditing(null);
         setDraft(null);
         setPlanFor(null);
+        // The paused folds close again for the next visit.
+        setVisit((v) => v + 1);
       };
     }, []),
   );
@@ -455,6 +471,21 @@ export default function ProgramsScreen() {
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
+  // Folds hold what is paused, and only while nothing is searched for: a search shows every match.
+  // They are closed each time Programs comes into view (`visit`), never remembered.
+  const folding = !search.trim();
+  // Which routines were in view when Programs came into view: one paused during this visit stays
+  // where it was, so a card never jumps into a closed fold under the finger.
+  const shownNow =
+    shown ??
+    new Set(state.programs.flatMap((p) => p.routines.filter((r) => r.enabled).map((r) => r.id)));
+  if (shown === null && ready) setShown(shownNow);
+  const folded = (r: Routine) => !r.enabled && !shownNow.has(r.id);
+  const allPaused = (p: Program) => p.routines.length > 0 && p.routines.every(folded);
+  // With nothing active (a setup imported all paused), there is nothing to fold away from.
+  const foldAll = folding && programs.some((p) => p.routines.length > 0 && !allPaused(p));
+  const listed = foldAll ? programs.filter((p) => !allPaused(p)) : programs;
+  const pausedPrograms = foldAll ? programs.filter(allPaused) : [];
   const bundled = !!editing?.routine.bundledInto;
   // Saving keeps the stored repeat and its anchor while the count is unchanged. A longer repeat
   // from a setup file is offered as a fifth choice, so it shows selected and saves unchanged.
@@ -504,6 +535,140 @@ export default function ProgramsScreen() {
   const changed = baseline !== null && baseline !== form;
   const closeEditor = () => (changed ? setConfirmDiscard(true) : setEditing(null));
   const editingProgram = draft !== null && state.programs.some((p) => p.id === draft.id);
+  /** A program's card: its routines, paused ones folded away, and its actions. */
+  const programCard = (p: Program, fold = foldAll) => (
+    <View key={p.id} style={[styles.card, { gap: 4, paddingTop: 16, paddingBottom: 4 }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 6 }}>
+        <IconTile name={programArea(p).symbol} tone={programArea(p).tone} size={40} />
+        <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
+          <Text accessibilityRole="header" style={styles.heading}>
+            {p.title}
+          </Text>
+          <Text style={type.caption}>
+            {p.goalIds
+              .map((id) => state.goals.find((g) => g.id === id)?.title)
+              .filter(Boolean)
+              .join(' · ') || 'Not linked to a goal'}
+          </Text>
+        </View>
+      </View>
+      {!p.routines.length && (
+        <Text style={[styles.muted, { paddingBottom: 6 }]}>
+          Nothing here yet. Add an objective when you are ready.
+        </Text>
+      )}
+      {/* Paused routines wait behind one closed fold, so only what comes up is in view. */}
+      {(fold ? p.routines.filter((r) => !folded(r)) : p.routines).map((r) => routineRow(p, r))}
+      {fold && p.routines.some(folded) && (
+        <Disclosure
+          key={`paused-${p.id}-${visit}`}
+          title="Paused"
+          summary={String(p.routines.filter(folded).length)}
+          label={`Paused in ${p.title}`}
+          plain>
+          {p.routines.filter(folded).map((r) => routineRow(p, r))}
+        </Disclosure>
+      )}
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 20,
+          borderTopWidth: p.routines.length ? StyleSheet.hairlineWidth : 0,
+          borderTopColor: palette.separator,
+        }}>
+        <LinkButton
+          title="+ Add objective here"
+          label="Add another objective"
+          onPress={() => open(p)}
+        />
+        <LinkButton
+          title="Edit program"
+          label={`Edit program ${p.title}`}
+          onPress={() => openProgram(p)}
+        />
+        {offersRotation(state, p) && (
+          <LinkButton
+            title={
+              p.rotation ? `Rotation · ${p.rotation.order.length} workouts ›` : 'Set up a rotation'
+            }
+            label={`Workout rotation for ${p.title}`}
+            onPress={() => setRotationFor(p)}
+          />
+        )}
+      </View>
+    </View>
+  );
+  /** One routine's row in its program card, with its detail pills. */
+  const routineRow = (p: Program, r: Routine) => (
+    <RoutineRow
+      key={r.id}
+      routine={r}
+      kind={routineKind(r, plans.has(r.id), circuits.has(r.id))}
+      parent={
+        r.bundledInto
+          ? (state.programs.find((parent) => parent.id === r.bundledInto)?.title ?? r.bundledInto)
+          : null
+      }
+      inRotation={!!p.rotation?.order.includes(r.id)}
+      onConfigure={() => open(p, r)}>
+      {r.study && (
+        <LinkButton
+          title={`Study plan · ${planMinutes(r.study)} min`}
+          label={`Edit study plan for ${r.title}`}
+          tone="pill"
+          onPress={() => setStudyOf(r.id)}
+        />
+      )}
+      {r.capture === 'rules' && (
+        <LinkButton
+          title={`Rules · ${
+            state.ruleBooks.find((b) => b.routineId === r.id)?.checkpoints.length ?? 0
+          } checkpoints`}
+          label={`Edit rules for ${r.title}`}
+          tone="pill"
+          onPress={() => setRulesFor(r)}
+        />
+      )}
+      {state.ruleBooks.some((b) => b.routineId === r.id && b.trading) && (
+        <LinkButton
+          title={`Trading cockpit${r.enabled ? '' : ' (paused)'}`}
+          label={`Open the trading cockpit for ${r.title}`}
+          tone="pill"
+          onPress={() => router.push('/trading')}
+        />
+      )}
+      {state.ruleBooks.some((b) => b.routineId === r.id && b.trading) && (
+        <LinkButton
+          title="My strategy"
+          label="Open My Trading Strategy"
+          tone="pill"
+          onPress={() => router.push('/strategy')}
+        />
+      )}
+      {state.ruleBooks
+        .filter((b) => b.routineId === r.id && b.trading)
+        .map((b) => (
+          <AccountSetRule key={b.id} book={b} />
+        ))}
+      {plans.has(r.id) && (
+        <LinkButton
+          title={`Workout plan · ${plans.get(r.id)} exercise${plans.get(r.id) === 1 ? '' : 's'}`}
+          label={`Edit workout plan for ${r.title}`}
+          tone="pill"
+          onPress={() => setPlanFor(r)}
+        />
+      )}
+      {circuits.has(r.id) && (
+        <LinkButton
+          title={`Timed circuit · ${clockText(totalSeconds(circuits.get(r.id)!))}`}
+          label={`Edit timed circuit for ${r.title}`}
+          tone="pill"
+          onPress={() => setCircuitOf(circuits.get(r.id)!)}
+        />
+      )}
+    </RoutineRow>
+  );
   return (
     <Page hideError={editing !== null || draft !== null} title="Programs">
       {/* Admin actions stay quiet: two tonal capsules, so the programs themselves lead. */}
@@ -530,141 +695,27 @@ export default function ProgramsScreen() {
           placeholder="Find a program"
         />
       )}
-      {[...new Set(programs.map((p) => p.group))].map((groupName) => {
-        const inGroup = programs.filter((p) => p.group === groupName);
+      {[...new Set(listed.map((p) => p.group))].map((groupName) => {
+        const inGroup = listed.filter((p) => p.group === groupName);
         return (
           <View key={groupName} style={styles.section}>
             {/* The group name only when it adds something beyond the program's own title. */}
             {(inGroup.length > 1 || inGroup[0].title !== groupName) && (
               <SectionLabel title={groupName} />
             )}
-            {inGroup.map((p) => (
-              <View key={p.id} style={[styles.card, { gap: 4, paddingTop: 16, paddingBottom: 4 }]}>
-                <View
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 6 }}>
-                  <IconTile name={programArea(p).symbol} tone={programArea(p).tone} size={40} />
-                  <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-                    <Text accessibilityRole="header" style={styles.heading}>
-                      {p.title}
-                    </Text>
-                    <Text style={type.caption}>
-                      {p.goalIds
-                        .map((id) => state.goals.find((g) => g.id === id)?.title)
-                        .filter(Boolean)
-                        .join(' · ') || 'Not linked to a goal'}
-                    </Text>
-                  </View>
-                </View>
-                {!p.routines.length && (
-                  <Text style={[styles.muted, { paddingBottom: 6 }]}>
-                    Nothing here yet. Add an objective when you are ready.
-                  </Text>
-                )}
-                {p.routines.map((r) => (
-                  <RoutineRow
-                    key={r.id}
-                    routine={r}
-                    kind={routineKind(r, plans.has(r.id), circuits.has(r.id))}
-                    parent={
-                      r.bundledInto
-                        ? (state.programs.find((parent) => parent.id === r.bundledInto)?.title ??
-                          r.bundledInto)
-                        : null
-                    }
-                    inRotation={!!p.rotation?.order.includes(r.id)}
-                    onConfigure={() => open(p, r)}>
-                    {r.study && (
-                      <LinkButton
-                        title={`Study plan · ${planMinutes(r.study)} min`}
-                        label={`Edit study plan for ${r.title}`}
-                        tone="pill"
-                        onPress={() => setStudyOf(r.id)}
-                      />
-                    )}
-                    {r.capture === 'rules' && (
-                      <LinkButton
-                        title={`Rules · ${
-                          state.ruleBooks.find((b) => b.routineId === r.id)?.checkpoints.length ?? 0
-                        } checkpoints`}
-                        label={`Edit rules for ${r.title}`}
-                        tone="pill"
-                        onPress={() => setRulesFor(r)}
-                      />
-                    )}
-                    {state.ruleBooks.some((b) => b.routineId === r.id && b.trading) && (
-                      <LinkButton
-                        title={`Trading cockpit${r.enabled ? '' : ' (paused)'}`}
-                        label={`Open the trading cockpit for ${r.title}`}
-                        tone="pill"
-                        onPress={() => router.push('/trading')}
-                      />
-                    )}
-                    {state.ruleBooks.some((b) => b.routineId === r.id && b.trading) && (
-                      <LinkButton
-                        title="My strategy"
-                        label="Open My Trading Strategy"
-                        tone="pill"
-                        onPress={() => router.push('/strategy')}
-                      />
-                    )}
-                    {state.ruleBooks
-                      .filter((b) => b.routineId === r.id && b.trading)
-                      .map((b) => (
-                        <AccountSetRule key={b.id} book={b} />
-                      ))}
-                    {plans.has(r.id) && (
-                      <LinkButton
-                        title={`Workout plan · ${plans.get(r.id)} exercise${plans.get(r.id) === 1 ? '' : 's'}`}
-                        label={`Edit workout plan for ${r.title}`}
-                        tone="pill"
-                        onPress={() => setPlanFor(r)}
-                      />
-                    )}
-                    {circuits.has(r.id) && (
-                      <LinkButton
-                        title={`Timed circuit · ${clockText(totalSeconds(circuits.get(r.id)!))}`}
-                        label={`Edit timed circuit for ${r.title}`}
-                        tone="pill"
-                        onPress={() => setCircuitOf(circuits.get(r.id)!)}
-                      />
-                    )}
-                  </RoutineRow>
-                ))}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    columnGap: 20,
-                    borderTopWidth: p.routines.length ? StyleSheet.hairlineWidth : 0,
-                    borderTopColor: palette.separator,
-                  }}>
-                  <LinkButton
-                    title="+ Add objective here"
-                    label="Add another objective"
-                    onPress={() => open(p)}
-                  />
-                  <LinkButton
-                    title="Edit program"
-                    label={`Edit program ${p.title}`}
-                    onPress={() => openProgram(p)}
-                  />
-                  {offersRotation(state, p) && (
-                    <LinkButton
-                      title={
-                        p.rotation
-                          ? `Rotation · ${p.rotation.order.length} workouts ›`
-                          : 'Set up a rotation'
-                      }
-                      label={`Workout rotation for ${p.title}`}
-                      onPress={() => setRotationFor(p)}
-                    />
-                  )}
-                </View>
-              </View>
-            ))}
+            {inGroup.map((p) => programCard(p))}
           </View>
         );
       })}
+      {pausedPrograms.length > 0 && (
+        <Disclosure
+          key={`paused-programs-${visit}`}
+          title="Paused programs"
+          summary={String(pausedPrograms.length)}>
+          {/* Inside this fold a program shows its routines at once: they are all paused. */}
+          {pausedPrograms.map((p) => programCard(p, false))}
+        </Disclosure>
+      )}
       {!programs.length &&
         (state.programs.length ? (
           <Text style={styles.muted}>No program matches “{search}”.</Text>
@@ -871,13 +922,12 @@ export default function ProgramsScreen() {
             />
             {anchorable && (
               <View style={{ gap: 8 }}>
-                <Field
-                  label="Up by · morning anchor (24-hour, optional)"
+                <TimeField
+                  label="Up by · morning anchor"
                   value={upBy}
                   onChange={setUpBy}
-                  placeholder="07:10"
-                  time
-                  hint="Your own time. On time means ticked within 15 minutes of it."
+                  optional
+                  hint="Your own time, for example 7:10 AM. On time means ticked within 15 minutes of it."
                 />
                 {earlierTick && upByMinutes !== null && (
                   <Toggle
@@ -1089,33 +1139,25 @@ export default function ProgramsScreen() {
                 />
                 {scheduleOpen && (
                   <>
-                    <Field
-                      label="Preferred start (24-hour, optional)"
-                      value={start}
-                      onChange={setStart}
-                      placeholder="14:30"
-                      time
-                    />
-                    <Field
-                      label="Thursday start override (optional)"
+                    <TimeField label="Preferred start" value={start} onChange={setStart} optional />
+                    <TimeField
+                      label="Thursday start override"
                       value={thursday}
                       onChange={setThursday}
-                      placeholder="14:00"
-                      time
+                      optional
                     />
-                    <Field
-                      label="Earliest start (optional)"
+                    <TimeField
+                      label="Earliest start"
                       value={earliest}
                       onChange={setEarliest}
-                      placeholder="18:00"
-                      time
+                      optional
                     />
-                    <Field
-                      label="Latest finish (optional, 24:00 = midnight)"
+                    <TimeField
+                      label="Latest finish"
                       value={latest}
                       onChange={setLatest}
-                      placeholder="23:30"
-                      time
+                      optional
+                      midnight
                     />
                     <Toggle
                       title="Fixed time"

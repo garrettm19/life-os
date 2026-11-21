@@ -14,7 +14,8 @@ import { replaceAllState } from '../state/session-store';
 import { sessionStore } from '../data/timer-store';
 import {
   Block,
-  clock,
+  Program,
+  timeInput,
   dateObject,
   displayDate,
   displayTime,
@@ -31,10 +32,18 @@ import {
   dayOutcome,
   dayProgress,
   protectDay,
-  streakHistory,
+  yesterdayOpen,
 } from '../domain/objectives';
-import { editBlock, generateDay, makeBlock, replanDay, setStatus } from '../domain/planner';
-import { Button, Field, Page, SectionLabel, Sheet, styles } from '../ui/components';
+import {
+  editBlock,
+  generateDay,
+  isManualBlock,
+  makeBlock,
+  removeBlock,
+  replanDay,
+  setStatus,
+} from '../domain/planner';
+import { Button, Field, Page, SectionLabel, Sheet, TimeField, styles } from '../ui/components';
 import { Disclosure, LinkButton } from '../ui/controls';
 import { RestoreDone, RestoreSheet, useRestore } from '../ui/restore-sheet';
 import {
@@ -46,6 +55,11 @@ import {
 import { RestedWorkoutRow, RowActions, TodayRow } from '../ui/today-row';
 import { RowList, doneAt } from '../ui/objective-row';
 import { TodayHero } from '../ui/today-hero';
+import { ConfirmRemove } from '../ui/confirm-remove';
+import { useSetupImport } from '../ui/setup-import';
+import { HousekeepingLine } from '../ui/housekeeping-line';
+import { MonthCalendar } from '../ui/dot-calendar';
+import { dismissFinish, finishDismissed } from '../ui/finish-yesterday';
 import { MorningCaption, morningTrail } from '../ui/morning-trail';
 import { PressableScale } from '../ui/motion';
 import { DayNav, PinnedProgress } from '../ui/today-top';
@@ -99,7 +113,6 @@ import { loadStudyRun } from '../data/study-store';
 import { dayListOrder, nextOpen, todayList } from '../domain/day-order';
 import { clearedTitles, greeting, recordedSub, timeRange } from '../ui/today-text';
 import { currentPriority } from '../domain/money';
-import { backupReminder } from '../domain/backup-reminder';
 import { MoneyPriorityCard } from '../ui/money-priority';
 import { tradingBook } from '../domain/trading';
 import { TradingRow } from '../ui/trading-card';
@@ -159,7 +172,10 @@ export default function TodayScreen() {
     // Once the board has scrolled away, a thin bar under the header keeps the day's progress.
     [boardAway, setBoardAway] = useState(false),
     // The date whose first save failed, so Today stops waiting for it.
-    [unsaved, setUnsaved] = useState<string | null>(null);
+    [unsaved, setUnsaved] = useState<string | null>(null),
+    // Re-renders Today when the Finish yesterday line is closed (the closed dates live in memory).
+    [, setFinishHidden] = useState<string | null>(null),
+    [confirmBlockDelete, setConfirmBlockDelete] = useState(false);
   let base = localDate(now);
   if (params.date) {
     try {
@@ -173,7 +189,11 @@ export default function TodayScreen() {
   // The demo replaces everything, so it is offered only when there is nothing to lose.
   const blank = isBlank(state);
   // Restore my backup on the empty Today: after a reinstall or on a new phone, the first thing.
-  const restore = useRestore();
+  // Load my setup opens Files here and previews the file in place, as Settings does. Choosing a
+  // backup clears what a setup file said.
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const restore = useRestore(() => setSetupError(null));
+  const setup = useSetupImport({ onError: setSetupError, onImported: () => setSetupError(null) });
   const today = localDate(now);
   const setDate = (next: string) => setSelection({ base, date: next });
   useEffect(() => {
@@ -282,12 +302,40 @@ export default function TodayScreen() {
   const open = (b?: Block, on = date) => {
     const value = b ?? makeBlock(manualBlockId(on), '', null, 30);
     setEditing(value);
+    setConfirmBlockDelete(false);
     setEditingDate(on);
     setTitle(value.title);
-    setTime(value.start === null ? '' : clock(value.start));
+    setTime(value.start === null ? '' : timeInput(value.start));
     setDuration(String(value.duration ?? ''));
     setFixed(value.fixed);
     setFormError(null);
+  };
+  // The block being edited as it is saved now, once it exists (a new block has nothing to delete).
+  const editingSaved = editing
+    ? state.days[editingDate ?? date]?.blocks.find((b) => b.id === editing.id)
+    : undefined;
+  const deleteBlock = async () => {
+    if (!editing) return;
+    const target = editingDate ?? date;
+    try {
+      // Checked here first, so a refusal (the block is gone, or the day is now past) is said
+      // beside the form instead of only as the page's error.
+      removeBlock(
+        state.days[target] ?? { date: target, blocks: [], revisions: [] },
+        editing.id,
+        localDate(),
+      );
+    } catch (e) {
+      setConfirmBlockDelete(false);
+      setFormError(e instanceof Error ? e.message : 'Could not delete this block.');
+      return;
+    }
+    const okay = await change((s) =>
+      withDay(s, removeBlock(s.days[target], editing.id, localDate(), new Date().toISOString())),
+    );
+    // A failed save closes the confirm too; the block stays and the save error says why.
+    setConfirmBlockDelete(false);
+    if (okay) setEditing(null);
   };
   const save = async () => {
     try {
@@ -331,6 +379,7 @@ export default function TodayScreen() {
   const studyBlocks = day.blocks.filter((b) => studyPlanFor(state, b.routineId));
   // A session started yesterday and still open (it crossed midnight) stays reachable from today.
   const yesterday = shiftDate(today, -1);
+  const finish = useMemo(() => yesterdayOpen(state, today), [state, today]);
   const carried =
     date === today
       ? (state.days[yesterday]?.blocks ?? []).filter(
@@ -438,6 +487,25 @@ export default function TodayScreen() {
             !rested.some((r) => r.program.id === p.id),
         )
       : [];
+  // "Rest day · next up: Lower body", named by its program when more than one rests.
+  const restDayLine = (p: Program) => {
+    const title = p.routines.find((r) => r.id === nextWorkout(state, p, date))?.title;
+    return `${resting.length > 1 ? `${p.title} · rest day` : 'Rest day'}${title ? ` · next up: ${title}` : ''}`;
+  };
+  // Training on a rest day after all: the program's next workout joins the day. In the fold it
+  // is as quiet as the actions beside it.
+  const trainAnyway = (p: Program, quiet = false) =>
+    nextWorkout(state, p, date) ? (
+      <Button
+        key={p.id}
+        secondary={!quiet}
+        quiet={quiet}
+        small
+        title={resting.length > 1 ? `Train ${p.title} anyway` : 'Train anyway'}
+        label={`Train ${p.title} ${date === today ? 'today' : 'this day'} instead of resting`}
+        onPress={() => void change((s) => trainDay(s, p.id, date, new Date().toISOString()))}
+      />
+    ) : null;
   // A later training day holds no rotation workout until it is the actual day: one line says
   // which is projected, as Week and the Tomorrow preview do. The day's count is left as saved.
   const projectedLines = projectedWorkouts(state, date, today);
@@ -517,7 +585,8 @@ export default function TodayScreen() {
       <MorningCaption text={text} trail={morningTrail(state, anchor, today)} />
     ) : undefined;
   const morningDetails = (block: Block) =>
-    isAnchor(block) && isToday && block.status === 'done'
+    // Yesterday too, opened to finish it: a tick after midnight would otherwise read as late.
+    isAnchor(block) && (isToday || date === yesterday) && block.status === 'done'
       ? { what: 'details', body: <MorningCorrection block={block} date={date} /> }
       : undefined;
   // The caption: a timed objective's time first, then its status, and a quiet Optional last.
@@ -632,7 +701,6 @@ export default function TodayScreen() {
   ]
     .filter(Boolean)
     .join(', ');
-  const reminder = isToday ? backupReminder(state, now) : null;
   // The header is the title alone, so the list starts high; the date is read with the title and
   // shown in More. Until saved data loads, the static web render and the first client one match.
   const longDate = dateObject(date).toLocaleDateString('en-US', {
@@ -701,6 +769,18 @@ export default function TodayScreen() {
                 hasActive={happening}
                 celebrate={celebrated === date}
                 onOpenStreak={() => setStreakOpen(true)}
+                finish={
+                  ready && finish && !finishDismissed(finish.date)
+                    ? {
+                        remaining: finish.remaining,
+                        onOpen: () => setDate(finish.date),
+                        onDismiss: () => {
+                          dismissFinish(finish.date);
+                          setFinishHidden(finish.date);
+                        },
+                      }
+                    : undefined
+                }
               />
             ) : (
               <ObjectiveBoard
@@ -717,6 +797,15 @@ export default function TodayScreen() {
             )}
           </View>
         )}
+      {ready && date === yesterday && (
+        <View style={{ alignItems: 'flex-start' }}>
+          <LinkButton
+            title="‹ Back to Today"
+            label="Back to Today"
+            onPress={() => setDate(today)}
+          />
+        </View>
+      )}
       {party && (
         <Celebration
           progress={progress}
@@ -752,9 +841,9 @@ export default function TodayScreen() {
               Restore your backup, start with your setup, or explore.
             </Text>
           </View>
-          {restore.error && (
+          {(restore.error ?? setupError) && (
             <Text accessibilityRole="alert" style={styles.alert}>
-              {restore.error}
+              {restore.error ?? setupError}
             </Text>
           )}
           {/* Your own backup comes first; a setup and the fictional demo are the other choices. */}
@@ -774,8 +863,8 @@ export default function TodayScreen() {
               icon="doc"
               tone="sky"
               title="Load my setup"
-              detail="Import a setup file in Settings"
-              onPress={() => router.push('/settings')}
+              detail="Choose your setup file and see what it adds first"
+              onPress={() => void setup.choose()}
             />
             {blank && (
               <>
@@ -793,31 +882,26 @@ export default function TodayScreen() {
         </View>
       )}
       <RestoreSheet restore={restore} />
-      {/* A rest day is part of today's plan: one line says why no workout is listed, so the list
-          still starts near the top. */}
-      {resting.map((p) => {
-        const next = nextWorkout(state, p, date);
-        const title = p.routines.find((r) => r.id === next)?.title;
-        return (
-          <View
-            key={p.id}
-            testID="rest-day"
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={[type.caption, { flex: 1, minWidth: 0 }]}>
-              {p.title} · rest day · {title ? `${title} next` : 'nothing next'}
-            </Text>
-            {next && (
-              <LinkButton
-                title={date === today ? 'Train today' : 'Train this day'}
-                label={`Train ${p.title} ${date === today ? 'today' : 'this day'} instead of resting`}
-                onPress={() =>
-                  void change((s) => trainDay(s, p.id, date, new Date().toISOString()))
-                }
-              />
-            )}
-          </View>
-        );
-      })}
+      {setup.sheet}
+      {/* A rest day is part of today's plan: one line says why no workout is listed and what is
+          next, so the list still starts near the top. Once the day is cleared, Train anyway waits
+          in the fold, so a finished day offers no more work above it. A line too long to share
+          its row wraps the button under it, never into a narrow column beside it. */}
+      {resting.map((p) => (
+        <View
+          key={p.id}
+          testID="rest-day"
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            columnGap: 12,
+            rowGap: 6,
+          }}>
+          <Text style={[type.caption, { flexGrow: 1, flexShrink: 1 }]}>{restDayLine(p)}</Text>
+          {!progress.cleared && trainAnyway(p)}
+        </View>
+      ))}
       {projectedLines.map((w) => (
         <Text key={w.program.id} testID="projected-workout" style={type.caption}>
           {w.program.title} · {w.title}
@@ -912,142 +996,141 @@ export default function TodayScreen() {
             No objectives yet. Open {moreTitle} to plan the day or add a block: the day is yours.
           </Text>
         )}
-      {reminder && (
-        <LinkButton
-          title={reminder}
-          label={`${reminder} Open Backup and restore.`}
-          tone="dim"
-          onPress={() => router.push('/backup')}
-        />
-      )}
+      {ready && isToday && <HousekeepingLine now={now} />}
       {/* The list comes first; everything else waits here, one tap away. */}
-      <Disclosure title={moreTitle} summary={moreSummary}>
-        <View style={{ gap: 16 }}>
-          {/* The date the header leaves out, other days, and the Day Clear streak's details. */}
-          <View style={[styles.spread, { rowGap: 0 }]}>
-            <DayNav
-              date={date}
-              isToday={isToday}
-              onDate={setDate}
-              onToday={() => setDate(localDate(now))}
-            />
-            {/* On today the hero card above holds the streak and opens its details. */}
-            {!isToday && (
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={streakDetailsLabel(streak)}
-                onPress={() => setStreakOpen(true)}
-                style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text
-                  style={{
-                    ...type.meta,
-                    color: streak.current > 0 ? palette.label : palette.label3,
-                  }}>
-                  {streakLine(streak)}
-                </Text>
-              </PressableScale>
+      {/* Only on an empty device does the welcome card stand alone: with saved days but no
+          program, other days, the log and Add block stay one tap away. */}
+      {!(ready && isToday && blank) && (
+        <Disclosure title={moreTitle} summary={moreSummary}>
+          <View style={{ gap: 16 }}>
+            {/* The date the header leaves out, other days, and the Day Clear streak's details. */}
+            <View style={[styles.spread, { rowGap: 0 }]}>
+              <DayNav
+                date={date}
+                isToday={isToday}
+                onDate={setDate}
+                onToday={() => setDate(localDate(now))}
+              />
+              {/* On today the hero card above holds the streak and opens its details. */}
+              {!isToday && (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={streakDetailsLabel(streak)}
+                  onPress={() => setStreakOpen(true)}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text
+                    style={{
+                      ...type.meta,
+                      color: streak.current > 0 ? palette.label : palette.label3,
+                    }}>
+                    {streakLine(streak)}
+                  </Text>
+                </PressableScale>
+              )}
+            </View>
+            {isToday && (
+              <TodayFocus
+                today={today}
+                canOpen={(b) => !!kindOf(b) && kindOf(b) !== 'study'}
+                onOpen={(b) => openRecord(b, kindOf(b)!)}
+              />
             )}
-          </View>
-          {isToday && (
-            <TodayFocus
-              today={today}
-              canOpen={(b) => !!kindOf(b) && kindOf(b) !== 'study'}
-              onOpen={(b) => openRecord(b, kindOf(b)!)}
-            />
-          )}
-          {priority && <MoneyPriorityCard review={priority} />}
-          {isToday && <TomorrowPreview now={now} />}
-          {/* The log records what happened; it is not part of planning the day. */}
-          <View style={styles.section}>
-            <View style={styles.spread}>
-              <SectionLabel
-                title="Log"
-                count={entries.length ? String(entries.length) : undefined}
-              />
-              <Button
-                secondary
-                small
-                title="Add"
-                label={isToday ? "Add to today's log" : "Add to this day's log"}
-                onPress={() => setLogTarget({ date })}
-              />
-            </View>
-            {entries.map((entry) => (
-              <PressableScale
-                key={entry.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Edit log entry: ${entry.text}`}
-                onPress={() => setLogTarget({ date, entry })}
-                style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 6, gap: 2 }}>
-                <Text style={styles.body} numberOfLines={3}>
-                  {entry.text}
-                </Text>
-                <Text style={{ ...type.meta }}>
-                  {doneAt(entry.at) ?? ''}
-                  {entry.category ? ` · ${CATEGORY_LABELS[entry.category]}` : ''}
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
-          <View style={{ gap: 6, marginTop: 4 }}>
-            <Text style={{ ...type.meta, color: palette.label2 }}>Plan this day</Text>
-            <View style={[styles.row, { columnGap: 4 }]}>
-              <Button secondary small title="Add block" onPress={() => open()} />
-              {state.programs.length > 0 && (
-                <Button
-                  quiet
-                  small
-                  title="Change the order"
-                  label="Change the order of the day"
-                  onPress={() => setOrderOpen(true)}
+            {priority && <MoneyPriorityCard review={priority} />}
+            {isToday && <TomorrowPreview now={now} />}
+            {/* The log records what happened; it is not part of planning the day. */}
+            <View style={styles.section}>
+              <View style={styles.spread}>
+                <SectionLabel
+                  title="Log"
+                  count={entries.length ? String(entries.length) : undefined}
                 />
-              )}
-              {/* Generating or replanning a past day would rewrite recorded history. */}
-              {date >= today && (
-                <>
+                <Button
+                  secondary
+                  small
+                  title="Add"
+                  label={isToday ? "Add to today's log" : "Add to this day's log"}
+                  onPress={() => setLogTarget({ date })}
+                />
+              </View>
+              {entries.map((entry) => (
+                <PressableScale
+                  key={entry.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit log entry: ${entry.text}`}
+                  onPress={() => setLogTarget({ date, entry })}
+                  style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 6, gap: 2 }}>
+                  <Text style={styles.body} numberOfLines={3}>
+                    {entry.text}
+                  </Text>
+                  <Text style={{ ...type.meta }}>
+                    {doneAt(entry.at) ?? ''}
+                    {entry.category ? ` · ${CATEGORY_LABELS[entry.category]}` : ''}
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
+            <View style={{ gap: 6, marginTop: 4 }}>
+              <Text style={{ ...type.meta, color: palette.label2 }}>Plan this day</Text>
+              <View style={[styles.row, { columnGap: 4 }]}>
+                <Button secondary small title="Add block" onPress={() => open()} />
+                {state.programs.length > 0 && (
                   <Button
                     quiet
                     small
-                    title="Generate day"
-                    onPress={() =>
-                      void change((s) =>
-                        withDay(
-                          s,
-                          generateDay(
-                            date,
-                            s.settings,
-                            s.programs,
-                            s.days[date],
-                            undefined,
-                            planKeep(s, date),
-                          ),
-                        ),
-                      )
-                    }
+                    title="Change the order"
+                    label="Change the order of the day"
+                    onPress={() => setOrderOpen(true)}
                   />
-                  <Button
-                    quiet
-                    small
-                    title="Replan"
-                    onPress={() =>
-                      void change((s) =>
-                        withDay(
-                          s,
-                          replanDay(
-                            s.days[date] ?? day,
-                            s.settings,
-                            isToday ? minute : s.settings.wake,
+                )}
+                {/* On a cleared rest day, training anyway is still one tap, here. */}
+                {progress.cleared && resting.map((p) => trainAnyway(p, true))}
+                {/* Generating or replanning a past day would rewrite recorded history. */}
+                {date >= today && (
+                  <>
+                    <Button
+                      quiet
+                      small
+                      title="Generate day"
+                      onPress={() =>
+                        void change((s) =>
+                          withDay(
+                            s,
+                            generateDay(
+                              date,
+                              s.settings,
+                              s.programs,
+                              s.days[date],
+                              undefined,
+                              planKeep(s, date),
+                            ),
                           ),
-                        ),
-                      )
-                    }
-                  />
-                </>
-              )}
+                        )
+                      }
+                    />
+                    <Button
+                      quiet
+                      small
+                      title="Replan"
+                      onPress={() =>
+                        void change((s) =>
+                          withDay(
+                            s,
+                            replanDay(
+                              s.days[date] ?? day,
+                              s.settings,
+                              isToday ? minute : s.settings.wake,
+                            ),
+                          ),
+                        )
+                      }
+                    />
+                  </>
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </Disclosure>
+        </Disclosure>
+      )}
       <Sheet
         title={
           !editing?.title
@@ -1062,12 +1145,12 @@ export default function TodayScreen() {
         close={() => setEditing(null)}>
         <Field label="Block name" value={title} onChange={setTitle} name />
         {!editing?.checklist && (
-          <Field
-            label="Start time (24-hour, blank = unscheduled)"
+          <TimeField
+            label="Start time"
             value={time}
             onChange={setTime}
-            placeholder="14:30"
-            time
+            optional
+            hint="For example 2:30 PM. Blank leaves it unscheduled."
           />
         )}
         <Field label="Duration in minutes" value={duration} onChange={setDuration} numeric />
@@ -1090,6 +1173,23 @@ export default function TodayScreen() {
           </Text>
         )}
         <Button title="Save block" onPress={() => void save()} />
+        {/* A block added by hand can be deleted on today or later; a past day only skips it. */}
+        {editing &&
+          editingSaved &&
+          isManualBlock(editing, editingDate ?? date) &&
+          (editingDate ?? date) >= today && (
+            <ConfirmRemove
+              open={confirmBlockDelete}
+              setOpen={setConfirmBlockDelete}
+              ask="Delete block"
+              message={
+                editingSaved.status === 'done'
+                  ? `Delete ${editingSaved.title}? It counted toward ${(editingDate ?? date) === today ? 'today' : 'that day'}, and the day is worked out again without it.`
+                  : `Delete ${editingSaved.title}? It leaves this day's plan.`
+              }
+              remove={{ title: 'Delete block', onPress: () => void deleteBlock() }}
+            />
+          )}
         {editedRoutine && (
           <LinkButton
             title="Change days, privacy or pause ›"
@@ -1101,12 +1201,23 @@ export default function TodayScreen() {
           />
         )}
       </Sheet>
-      <Sheet title="Day clear streak" visible={streakOpen} close={() => setStreakOpen(false)}>
+      <Sheet title="Day Clear streak" visible={streakOpen} close={() => setStreakOpen(false)}>
         <StreakSheetBody
           streak={streak}
           protection={day.protection}
           // Only while the sheet is open: a closed sheet renders nothing.
-          history={streakOpen ? streakHistory(state, date, today) : []}
+          calendar={
+            streakOpen ? (
+              <MonthCalendar
+                state={state}
+                today={today}
+                onOpenDay={(d) => {
+                  setStreakOpen(false);
+                  setDate(d);
+                }}
+              />
+            ) : null
+          }
           onProtect={(reason) =>
             void change((s) =>
               withDay(s, protectDay(s.days[date] ?? { date, blocks: [], revisions: [] }, reason)),

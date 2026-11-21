@@ -3,7 +3,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { trainingState } from '../src/test-support/fixtures';
 import { demoState } from '../src/domain/demo';
 import { defaultTradingProfile } from '../src/domain/trading';
-import { chooseSetup, importSetup } from './support/files';
+import { chooseSetup, importSetup, loadSetupFromToday, restoreFromToday } from './support/files';
+import { encodeBackup } from '../src/domain/backup';
 import { saved, seed } from './support/storage';
 
 // Setup import from Settings, with synthetic setup files only.
@@ -201,7 +202,8 @@ test('local setup import keeps every program and allows routine configuration', 
   };
   await importSetup(page, large, 'example-setup.json');
   await page.getByRole('link', { name: 'Programs', exact: true }).click();
-  // All 33 programs stay visible, each with its own way to add an objective.
+  // All 33 programs stay visible, each with its own way to add an objective: with nothing
+  // active yet, nothing is folded away.
   await expect(
     page.getByRole('button', { name: 'Add another objective', exact: true }),
   ).toHaveCount(33);
@@ -213,18 +215,35 @@ test('local setup import keeps every program and allows routine configuration', 
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
   await page.reload();
+  // With one program active, the 32 still paused wait in their fold, and every one is kept.
+  await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Paused programs, 32. Show', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Add another objective', exact: true }),
   ).toHaveCount(33);
-  await expect(page.getByText('25 min · Mo', { exact: true })).toBeVisible();
+});
+
+test('Load my setup on the empty Today opens Files and previews the setup in place', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date(2026, 10, 9, 9) });
+  await page.goto('/');
+  // Nothing to plan yet: the welcome card is the one next step, with no More for today under it.
+  await expect(page.getByRole('button', { name: /^More for today/ })).toHaveCount(0);
+  await loadSetupFromToday(page, setup);
+  await expect(page.getByText('Import this setup?', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Import this setup', exact: true }).click();
+  // Two taps from an empty device: the plan is on Today, with no trip to Settings.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('welcome')).toHaveCount(0);
+  expect((await saved(page)).programs).toHaveLength(1);
 });
 
 test('a first-run import shows its result in place, folds the import and leads to Today', async ({
   page,
 }) => {
   await page.clock.install({ time: new Date(2026, 10, 9, 9) });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Load my setup', exact: true }).click();
+  await page.goto('/settings');
   await chooseSetup(page, setup);
   await page.getByRole('button', { name: 'Import this setup', exact: true }).click();
   const result = page.getByText('This device now has 1 program and 1 routine.', { exact: true });
@@ -257,6 +276,24 @@ test('a setup that cannot be read says why inside the import card', async ({ pag
   expect(box.y).toBeLessThan(local.y);
 });
 
+test('with a plan, the import keeps Choose setup file and folds the paste box', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/settings' });
+  await page.getByRole('button', { name: 'Import a private setup. Show', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Choose setup file', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Paste instead', exact: true }).click();
+  await expect(page.getByLabel('Or paste setup JSON', { exact: true })).toBeVisible();
+  // The widget caption says what the switch does and what it reveals; the rest is in a fold.
+  await expect(
+    page.getByText(/^Shows a check on the widget when the day is cleared\. It counts private/),
+  ).toBeVisible();
+  await expect(page.getByText(/^Small and medium show your next action/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'About widgets. Show', exact: true }).click();
+  await expect(page.getByText(/^Small and medium show your next action/)).toBeVisible();
+});
+
 test('schedule settings say what is wrong and that they saved, beside Save', async ({ page }) => {
   await seed(page, trainingState(), { route: '/settings' });
   await page.getByRole('button', { name: /^Day boundaries and work schedule\. Show$/ }).click();
@@ -284,4 +321,47 @@ test('the About card names the version in app.json, from a web export built afte
   await seed(page, trainingState(), { clock: new Date(2026, 10, 9, 9), route: '/settings' });
   await expect(page.getByTestId('about')).toContainText(`Life OS`);
   await expect(page.getByText(`Version ${app.expo.version}`, { exact: true })).toBeAttached();
+});
+
+test('a routine paused from Settings while Programs waits underneath is folded on return', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/programs' });
+  await expect(
+    page.getByRole('button', { name: 'Configure Upper body', exact: true }),
+  ).toBeVisible();
+  // Settings opens on top of Programs, which stays mounted out of view.
+  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Import and pause the existing routines with the same names' })
+    .click();
+  await expect(page.getByText('Setup imported', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  // Back on Programs: the routine paused meanwhile waits in its program's closed fold.
+  await expect(
+    page.getByRole('button', { name: 'Paused in Training, 1. Show', exact: true }),
+  ).toBeVisible();
+});
+
+test('the widget switch says, beside it, that Day Cleared counts private objectives', async ({
+  page,
+}) => {
+  await seed(page, trainingState(), { route: '/settings' });
+  // In view with the switch, not only inside About widgets.
+  await expect(
+    page.getByText(
+      /counts private objectives too, and anyone who sees your Home Screen can see it/,
+    ),
+  ).toBeVisible();
+});
+
+test('a setup error on the empty Today clears when Restore is chosen next', async ({ page }) => {
+  await page.clock.install({ time: new Date(2026, 10, 9, 9) });
+  await page.goto('/');
+  await loadSetupFromToday(page, { format: 'other' });
+  const error = page.getByText('Choose a Life OS setup file (life-os-setup-v1).', { exact: true });
+  await expect(error).toBeVisible();
+  await restoreFromToday(page, encodeBackup(trainingState()));
+  await expect(error).toHaveCount(0);
 });

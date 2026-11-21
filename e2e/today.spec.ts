@@ -77,13 +77,15 @@ test("Today is one list in the order of the day, and tomorrow's preview is read-
   ).toHaveCount(0);
   await expect(page.getByTestId('study-card')).toHaveCount(0);
   await expect(page.getByTestId('row:Daily study')).toHaveCount(1);
-  await expect(page.getByText(/to clear the day|to go$/i)).toBeVisible();
+  // An untouched day says its count once (0/N), without a goal line repeating it.
+  await expect(page.getByText(/to clear the day|to go$/i)).toHaveCount(0);
   // The next thing to do has the Ember outline; ticking it passes that on, and the done row
   // stays where it was.
   await expect(outline(rows.nth(0))).toHaveCSS('border-top-color', rgb(palette.accent));
   await expect(outline(rows.nth(1))).toHaveCSS('border-top-color', rgb(palette.checkEdge));
   await page.getByRole('button', { name: 'Mark Job search done', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Undo Job search', exact: true })).toBeVisible();
+  await expect(page.getByText(/to clear the day|to go$/i)).toBeVisible();
   await expect(outline(rows.nth(1))).toHaveCSS('border-top-color', rgb(palette.accent));
   expect(await ids()).toEqual(order);
   const preview = page.getByRole('button', { name: /^Tomorrow, Tue, Nov 10: \d+ due/ });
@@ -189,7 +191,7 @@ test('a checklist item edits without a start time, and saving it clears a stored
     .getByRole('button', { name: /^Job search(\.|$)/ })
     .click({ delay: 900 });
   await expect(page.getByLabel('Block name', { exact: true })).toHaveValue('Job search');
-  await expect(page.getByLabel('Start time (24-hour, blank = unscheduled)')).toHaveCount(0);
+  await expect(page.getByLabel('Start time')).toHaveCount(0);
   await expect(page.getByLabel('Fixed time', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save block', exact: true }).click();
   await expect(page.getByLabel('Block name', { exact: true })).toHaveCount(0);
@@ -292,7 +294,7 @@ test('the hero card opens the streak details; other days are in More for today',
     .getByTestId('today-hero')
     .getByRole('button', { name: /^Last 7 days: .*Streak details\.$/ })
     .click();
-  await expect(page.getByText('Day clear streak', { exact: true })).toBeVisible();
+  await expect(page.getByText('Day Clear streak', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close', exact: true }).last().click();
   await openMore(page);
   await expect(page.getByRole('button', { name: 'Mon, Nov 9, today', exact: true })).toBeVisible();
